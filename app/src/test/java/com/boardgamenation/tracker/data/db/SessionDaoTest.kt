@@ -67,10 +67,9 @@ class SessionDaoTest {
     )
 
     /** The same table, with everyone ticked as playing the game for the first time. */
-    private fun newcomer(scores: List<Pair<Long, Double?>>, id: Long = 0) =
-        form(scores, id = id).let { table ->
-            table.copy(participants = table.participants.map { it.copy(isNewPlayer = true) })
-        }
+    private fun newcomer(scores: List<Pair<Long, Double?>>, id: Long = 0) = form(scores, id = id).let { table ->
+        table.copy(participants = table.participants.map { it.copy(isNewPlayer = true) })
+    }
 
     private fun teamForm(id: Long = 0) = SessionForm(
         id = id,
