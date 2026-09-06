@@ -230,8 +230,21 @@ class SessionRepository @Inject constructor(
         return id
     }
 
-    /** Applies the scoring mode's ranking rules and flags first-timers. */
-    private suspend fun normalise(form: SessionForm): List<ParticipantForm> {
+    /**
+     * Applies the scoring mode's ranking rules.
+     *
+     * Deliberately does not touch `isNewPlayer`. This used to tick the box for anyone
+     * the record showed had never played the game, on the grounds that a first play is
+     * worth catching even when nobody thought to say so. But the rule could only ever
+     * switch the flag on, and it ran on every save rather than only on the first, so a
+     * play the user had explicitly unticked was flagged straight back the moment they
+     * saved -- and unticking it a second time did nothing either. The games it caught
+     * were the ones with a single recorded play, which is precisely where the user is
+     * most likely to be saying "no, we had played this before I started tracking".
+     *
+     * The record cannot tell those two apart, and the user can, so the flag is theirs.
+     */
+    private fun normalise(form: SessionForm): List<ParticipantForm> {
         val ranked = when {
             // The caller already knows who won and there is nothing to infer. Quick log
             // works this way; it must not be expressed by changing the scoring mode,
@@ -266,26 +279,6 @@ class SessionRepository @Inject constructor(
                 ScoringMode.NONE -> form.participants.map { it.copy(placement = null) }
             }
         }
-        val flagged = ranked.map { participant ->
-            if (participant.isNewPlayer) {
-                participant
-            } else {
-                // A player's first appearance with a game is worth recording even when
-                // the person entering the session did not think to tick the box.
-                //
-                // This session is excluded from the count rather than subtracted from
-                // it. Subtracting assumed it was always already counted, which is untrue
-                // of a draft the timer is finalising and of a player just added to an
-                // existing play: both counted nothing and then took one away, so one
-                // prior play read as none and a regular came back a first-timer.
-                val priorPlays = sessionDao.timesPlayerPlayedGame(
-                    playerId = participant.playerId,
-                    gameId = form.gameId,
-                    excludingSessionId = form.id
-                )
-                participant.copy(isNewPlayer = priorPlays == 0)
-            }
-        }
 
         // A score and a side each belong to the mode that has a field for them, in the
         // same way an end reason is only written for a sudden death and a co-op outcome
@@ -299,7 +292,7 @@ class SessionRepository @Inject constructor(
         // answers. Leaving it turns team scoring into a state a play cannot be moved
         // out of: the save takes the new mode, and the load hands the old one straight
         // back.
-        val owned = flagged.map { participant ->
+        val owned = ranked.map { participant ->
             participant.copy(
                 score = participant.score.takeIf { form.scoringMode.recordsScores },
                 team = participant.team.takeIf { form.scoringMode.recordsSides }

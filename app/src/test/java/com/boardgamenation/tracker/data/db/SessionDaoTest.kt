@@ -66,6 +66,11 @@ class SessionDaoTest {
         }
     )
 
+    /** The same table, with everyone ticked as playing the game for the first time. */
+    private fun newcomer(scores: List<Pair<Long, Double?>>, id: Long = 0) = form(scores, id = id).let { table ->
+        table.copy(participants = table.participants.map { it.copy(isNewPlayer = true) })
+    }
+
     private fun teamForm(id: Long = 0) = SessionForm(
         id = id,
         gameId = gameId,
@@ -261,15 +266,47 @@ class SessionDaoTest {
         assertEquals(1, db.sessionDao().getSession(id)!!.playerCount)
     }
 
+    /**
+     * The save used to work this flag out from the record instead of taking the form's
+     * word for it, and the rule could only ever switch it on. So a play whose only
+     * record was itself came back flagged however many times the user unticked it --
+     * and that is exactly the case where the user knows something the record does not:
+     * that they had played the game before they started keeping one.
+     */
     @Test
-    fun `a first appearance is flagged even when the box was not ticked`() = runTest {
-        val first = repository.save(form(listOf(me to 10.0)))
-        assertTrue(db.sessionDao().getParticipants(first).first().isNewPlayer)
+    fun `unticking a first appearance survives a save on a game played only once`() = runTest {
+        val id = repository.save(newcomer(listOf(me to 10.0)))
+        assertTrue(db.sessionDao().getParticipants(id).first().isNewPlayer)
 
-        val second = repository.save(
-            form(listOf(me to 10.0)).copy(playedOn = LocalDate.parse("2026-02-02"))
+        repository.save(form(listOf(me to 10.0), id = id))
+
+        assertFalse(db.sessionDao().getParticipants(id).first().isNewPlayer)
+    }
+
+    @Test
+    fun `a ticked first appearance survives a save`() = runTest {
+        val id = repository.save(newcomer(listOf(me to 10.0)))
+        repository.save(newcomer(listOf(me to 15.0), id = id))
+
+        assertTrue(db.sessionDao().getParticipants(id).first().isNewPlayer)
+    }
+
+    /** One table can hold a newcomer and a regular, and the save keeps them apart. */
+    @Test
+    fun `the first appearance flag is kept per player`() = runTest {
+        val id = repository.save(
+            form(listOf(me to 10.0, ben to 8.0)).let { table ->
+                table.copy(
+                    participants = table.participants.map {
+                        it.copy(isNewPlayer = it.playerId == ben)
+                    }
+                )
+            }
         )
-        assertFalse(db.sessionDao().getParticipants(second).first().isNewPlayer)
+
+        val participants = db.sessionDao().getParticipants(id).associateBy { it.playerId }
+        assertFalse(participants[me]!!.isNewPlayer)
+        assertTrue(participants[ben]!!.isNewPlayer)
     }
 
     @Test
@@ -378,36 +415,6 @@ class SessionDaoTest {
         )
 
         assertTrue(db.sessionDao().getParticipants(id).all { it.seat == null })
-    }
-
-    @Test
-    fun `finalising a timer draft does not make a regular look like a first-timer`() = runTest {
-        repository.save(form(listOf(me to 10.0)))
-
-        val draftId = repository.createDraft(gameId, seating(me))
-        repository.save(form(listOf(me to 12.0), id = draftId))
-
-        assertFalse(db.sessionDao().getParticipants(draftId).first().isNewPlayer)
-    }
-
-    @Test
-    fun `a player added to an existing play keeps the plays they already have`() = runTest {
-        repository.save(form(listOf(ben to 10.0)))
-        val id = repository.save(form(listOf(me to 10.0)))
-
-        repository.save(form(listOf(me to 10.0, ben to 8.0), id = id))
-
-        val participants = db.sessionDao().getParticipants(id).associateBy { it.playerId }
-        assertFalse(participants[ben]!!.isNewPlayer)
-        assertTrue(participants[me]!!.isNewPlayer)
-    }
-
-    @Test
-    fun `editing a play does not withdraw the first appearance it recorded`() = runTest {
-        val id = repository.save(form(listOf(me to 10.0)))
-        repository.save(form(listOf(me to 15.0), id = id))
-
-        assertTrue(db.sessionDao().getParticipants(id).first().isNewPlayer)
     }
 
     @Test
