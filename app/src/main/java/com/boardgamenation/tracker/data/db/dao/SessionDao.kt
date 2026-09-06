@@ -174,24 +174,6 @@ interface SessionDao {
     suspend fun averageDurationFor(gameId: Long): Double?
 
     /**
-     * How often a player has played a game, ignoring one session.
-     *
-     * The exclusion is what makes this answer "before this play" rather than "in total":
-     * the session being saved may already have rows of its own, and counting them would
-     * have every player look like a returning one. Pass 0 for a session that does not
-     * exist yet, which no row can match.
-     */
-    @Query(
-        """
-        SELECT COUNT(*) FROM session_players sp
-        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0
-        WHERE sp.player_id = :playerId AND s.game_id = :gameId
-          AND sp.session_id != :excludingSessionId
-        """
-    )
-    suspend fun timesPlayerPlayedGame(playerId: Long, gameId: Long, excludingSessionId: Long): Int
-
-    /**
      * Rules already recorded as stopping this game early, newest first, so the form can
      * offer "Military supremacy" as a chip on the second play rather than asking the
      * user to type it again.
