@@ -76,6 +76,9 @@ import com.boardgamenation.tracker.ui.components.GameThumbnail
 import com.boardgamenation.tracker.ui.components.LoadingRows
 import com.boardgamenation.tracker.ui.components.currentLocale
 
+/** Matches the 4dp under the game count plus the 4dp above the first card. */
+private val ListBottomGap = 8.dp
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CollectionScreen(onOpenGame: (Long) -> Unit, onAddGame: () -> Unit, viewModel: CollectionViewModel = hiltViewModel()) {
@@ -116,7 +119,10 @@ fun CollectionScreen(onOpenGame: (Long) -> Unit, onAddGame: () -> Unit, viewMode
                                 )
                             )
                         }
-                        Box {
+                        // The two 48dp buttons sit 24dp apart (12dp of internal padding
+                        // each), but the bar only leaves 4dp after the last one. The extra
+                        // 8dp evens the trailing edge up with the gap between them.
+                        Box(Modifier.padding(end = 8.dp)) {
                             IconButton(onClick = { sortMenuOpen = true }) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.Sort,
@@ -470,6 +476,9 @@ private fun FilterChipRow(
 @Composable
 private fun GameList(games: List<GameListItem>, selection: Set<Long>, onOpen: (Long) -> Unit, onToggleSelect: (Long) -> Unit) {
     LazyColumn(
+        // Padding, not contentPadding: this gap has to stay put while the list scrolls
+        // through it, the way the one above the first card does.
+        modifier = Modifier.padding(bottom = ListBottomGap),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             start = 12.dp,
             end = 12.dp,
@@ -562,6 +571,7 @@ private fun GameRow(game: GameListItem, selected: Boolean, onOpen: () -> Unit, o
 private fun GameGrid(games: List<GameListItem>, selection: Set<Long>, onOpen: (Long) -> Unit, onToggleSelect: (Long) -> Unit) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 112.dp),
+        modifier = Modifier.padding(bottom = ListBottomGap),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             start = 12.dp,
             end = 12.dp,
