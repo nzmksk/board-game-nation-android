@@ -71,14 +71,12 @@ import com.boardgamenation.tracker.domain.model.CollectionSort
 import com.boardgamenation.tracker.domain.model.GameStatus
 import com.boardgamenation.tracker.domain.model.PlaytimeBucket
 import com.boardgamenation.tracker.domain.model.TagKind
+import com.boardgamenation.tracker.ui.components.BottomBarGap
 import com.boardgamenation.tracker.ui.components.ConfirmDialog
 import com.boardgamenation.tracker.ui.components.EmptyState
 import com.boardgamenation.tracker.ui.components.GameThumbnail
 import com.boardgamenation.tracker.ui.components.LoadingRows
 import com.boardgamenation.tracker.ui.components.currentLocale
-
-/** Matches the 4dp under the game count plus the 4dp above the first card. */
-private val ListBottomGap = 8.dp
 
 /** The gutter the search field, the filter chips and the cards all sit on. */
 private val ScreenGutter = 12.dp
@@ -500,7 +498,7 @@ private fun GameList(games: List<GameListItem>, selection: Set<Long>, onOpen: (L
     LazyColumn(
         // Padding, not contentPadding: this gap has to stay put while the list scrolls
         // through it, the way the one above the first card does.
-        modifier = Modifier.padding(bottom = ListBottomGap),
+        modifier = Modifier.padding(bottom = BottomBarGap),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             start = 12.dp,
             end = 12.dp,
@@ -593,7 +591,7 @@ private fun GameRow(game: GameListItem, selected: Boolean, onOpen: () -> Unit, o
 private fun GameGrid(games: List<GameListItem>, selection: Set<Long>, onOpen: (Long) -> Unit, onToggleSelect: (Long) -> Unit) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 112.dp),
-        modifier = Modifier.padding(bottom = ListBottomGap),
+        modifier = Modifier.padding(bottom = BottomBarGap),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             start = 12.dp,
             end = 12.dp,

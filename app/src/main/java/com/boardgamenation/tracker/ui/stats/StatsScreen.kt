@@ -36,6 +36,7 @@ import com.boardgamenation.tracker.R
 import com.boardgamenation.tracker.core.time.DurationFormat
 import com.boardgamenation.tracker.data.db.projection.CostPerPlayRow
 import com.boardgamenation.tracker.data.db.projection.LabelledValue
+import com.boardgamenation.tracker.ui.components.BottomBarGap
 import com.boardgamenation.tracker.ui.components.DivergingBarChart
 import com.boardgamenation.tracker.ui.components.HorizontalBarChart
 import com.boardgamenation.tracker.ui.components.LineChart
@@ -63,7 +64,9 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.stats_title)) }) }
     ) { padding ->
-        Column(Modifier.padding(padding)) {
+        // The gap above the tab row goes on the column rather than on each tab's list:
+        // all four scroll to the bottom of the screen and all four need it.
+        Column(Modifier.padding(padding).padding(bottom = BottomBarGap)) {
             // Primary rather than secondary: these four are this screen's top-level
             // navigation, not a subdivision of something above them.
             PrimaryTabRow(selectedTabIndex = tab) {

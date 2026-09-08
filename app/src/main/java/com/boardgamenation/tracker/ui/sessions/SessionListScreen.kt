@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.boardgamenation.tracker.R
 import com.boardgamenation.tracker.core.time.DurationFormat
 import com.boardgamenation.tracker.data.db.projection.SessionListItem
+import com.boardgamenation.tracker.ui.components.BottomBarGap
 import com.boardgamenation.tracker.ui.components.EmptyState
 import com.boardgamenation.tracker.ui.components.GameThumbnail
 import com.boardgamenation.tracker.ui.components.LoadingRows
@@ -67,7 +68,9 @@ fun SessionListScreen(onOpenSession: (Long) -> Unit, onNewSession: () -> Unit, v
             )
         }
     ) { padding ->
-        Column(Modifier.padding(padding)) {
+        // The list runs to the bottom of the screen, so it needs the same gap above the
+        // tab row that every other top-level destination keeps.
+        Column(Modifier.padding(padding).padding(bottom = BottomBarGap)) {
             FilterRow(
                 state = state,
                 onGame = viewModel::setGame,
