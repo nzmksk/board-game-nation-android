@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -143,9 +144,14 @@ private fun AchievementTile(achievement: AchievementUi) {
             // really is, and centring puts the icon on the middle of the name itself --
             // on the single line, or between the two -- instead of on the empty line the
             // reservation leaves under a short name.
+            //
+            // A minimum, not a fixed height. A fixed one is a maximum too, and a name that
+            // needed its second line was measured against a box that had rounded a fraction
+            // of a pixel off the two it reserved -- so the second line did not fit and the
+            // name was ellipsised onto one instead of wrapping.
             val nameStyle = MaterialTheme.typography.titleSmall
             val nameLineHeight = with(LocalDensity.current) { nameStyle.lineHeight.toDp() }
-            Box(Modifier.height(nameLineHeight * NAME_LINES)) {
+            Box(Modifier.heightIn(min = nameLineHeight * NAME_LINES)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = if (achievement.isUnlocked) {
