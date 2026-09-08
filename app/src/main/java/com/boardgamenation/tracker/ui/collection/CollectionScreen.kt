@@ -264,7 +264,10 @@ fun CollectionScreen(onOpenGame: (Long) -> Unit, onAddGame: () -> Unit, viewMode
             title = { Text(stringResource(R.string.collection_bulk_tag)) },
             text = {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    state.tags.forEach { tag ->
+                    // Designers are excluded here too. Attributing a game to a designer
+                    // is something the edit screen does per game, not something to sweep
+                    // across a selection.
+                    state.tags.filter { it.kind.shownAsTag }.forEach { tag ->
                         FilterChip(
                             selected = false,
                             onClick = {
@@ -476,12 +479,12 @@ private fun FilterChipRow(
             label = { Text(stringResource(R.string.collection_filter_hide_expansions)) }
         )
 
-        // Capped per kind rather than over one flat list. Designers moved into the same
-        // table as mechanics and categories, and a single take(20) would let a collection
-        // with a lot of designers push every mechanic off the end of the row. Every kind
-        // is walked, not just the curated three, so a CUSTOM tag -- which is what an
-        // unrecognised kind restored from CSV falls back to -- stays selectable here.
-        TagKind.entries.forEach { kind ->
+        // Capped per kind rather than over one flat list, so a collection heavy in one
+        // kind cannot push every chip of another off the end of the row. Every kind that
+        // reads as a tag is walked, not just the curated two, so a CUSTOM tag -- which is
+        // what an unrecognised kind restored from CSV falls back to -- stays selectable
+        // here. Designers are not a tag anybody browses by, and they are left out.
+        TagKind.entries.filter { it.shownAsTag }.forEach { kind ->
             state.tags.filter { it.kind == kind }.take(TAG_CHIPS_PER_KIND).forEach { tag ->
                 FilterChip(
                     selected = tag.id in state.filter.tagIds,
