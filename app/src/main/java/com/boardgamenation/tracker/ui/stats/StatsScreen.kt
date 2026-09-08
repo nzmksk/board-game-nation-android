@@ -101,18 +101,18 @@ private fun CollectionTab(viewModel: StatsViewModel) {
                 StatTile(
                     label = stringResource(R.string.stats_total_games),
                     value = stats.ownedGames.toString(),
-                    modifier = tileCell()
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
                 StatTile(
                     label = stringResource(R.string.stats_total_expansions),
                     value = stats.expansions.toString(),
-                    modifier = tileCell()
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
                 StatTile(
                     label = stringResource(R.string.stats_collection_value),
                     value = String.format(locale, "%,.0f", stats.value),
                     supporting = stats.currency,
-                    modifier = tileCell()
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
             }
         }
@@ -196,17 +196,17 @@ private fun PlaysTab(viewModel: StatsViewModel) {
                     StatTile(
                         label = stringResource(R.string.stats_total_plays),
                         value = stats.totalPlays.toString(),
-                        modifier = tileCell()
+                        modifier = Modifier.weight(1f).fillMaxHeight()
                     )
                     StatTile(
                         label = stringResource(R.string.stats_total_hours),
                         value = DurationFormat.hoursOneDecimal(stats.totalMinutes),
-                        modifier = tileCell()
+                        modifier = Modifier.weight(1f).fillMaxHeight()
                     )
                     StatTile(
                         label = stringResource(R.string.stats_distinct_games),
                         value = stats.distinctGames.toString(),
-                        modifier = tileCell()
+                        modifier = Modifier.weight(1f).fillMaxHeight()
                     )
                 }
                 StatTileRow {
@@ -218,13 +218,13 @@ private fun PlaysTab(viewModel: StatsViewModel) {
                             stats.streak.longest,
                             stats.streak.longest
                         ),
-                        modifier = tileCell()
+                        modifier = Modifier.weight(1f).fillMaxHeight()
                     )
                     StatTile(
                         label = stringResource(R.string.stats_h_index),
                         value = stats.hIndex.toString(),
                         supporting = pluralStringResource(R.plurals.stats_h_index_body, stats.hIndex, stats.hIndex),
-                        modifier = tileCell()
+                        modifier = Modifier.weight(1f).fillMaxHeight()
                     )
                 }
             }
@@ -498,9 +498,9 @@ private val StatTileGap = 8.dp
  * A row of headline figures, laid out as equal cells.
  *
  * The row takes the height of the tallest tile in it -- hence the intrinsic measure --
- * and every cell fills up to it. Without that, a tile carrying a supporting line stood
- * taller than its neighbours and one carrying two lines stood taller again, so no row of
- * figures on the screen read as a row.
+ * and each tile fills up to it with `Modifier.weight(1f).fillMaxHeight()`. Without that,
+ * a tile carrying a supporting line stood taller than its neighbours and one carrying two
+ * lines stood taller again, so no row of figures on the screen read as a row.
  */
 @Composable
 private fun StatTileRow(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
@@ -510,9 +510,6 @@ private fun StatTileRow(modifier: Modifier = Modifier, content: @Composable RowS
         content = content
     )
 }
-
-/** One cell of a [StatTileRow]: an equal share of the width, and the full height. */
-private fun RowScope.tileCell(): Modifier = Modifier.weight(1f).fillMaxHeight()
 
 @Composable
 private fun ChartCard(content: @Composable () -> Unit) {
