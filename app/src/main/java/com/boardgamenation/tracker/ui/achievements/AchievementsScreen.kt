@@ -1,6 +1,7 @@
 package com.boardgamenation.tracker.ui.achievements
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,7 +28,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -134,27 +137,35 @@ private fun AchievementTile(achievement: AchievementUi) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Icon(
-                    imageVector = if (achievement.isUnlocked) {
-                        Icons.Filled.EmojiEvents
-                    } else {
-                        Icons.Filled.Lock
-                    },
-                    contentDescription = stringResource(
-                        if (achievement.isUnlocked) {
-                            R.string.cd_achievement_unlocked
+            // The name reserves both its lines whether or not it needs them, so centring
+            // the icon on the Row hung it below a name that only used the first line.
+            // Sit it on that first line instead: top-aligned, centred in a box one line
+            // high, which follows the line height up at larger font scales.
+            val nameStyle = MaterialTheme.typography.titleSmall
+            val nameLineHeight = with(LocalDensity.current) { nameStyle.lineHeight.toDp() }
+            Row(verticalAlignment = Alignment.Top) {
+                Box(Modifier.height(nameLineHeight), contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (achievement.isUnlocked) {
+                            Icons.Filled.EmojiEvents
                         } else {
-                            R.string.cd_achievement_locked
-                        }
-                    ),
-                    tint = if (achievement.isUnlocked) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier.size(20.dp)
-                )
+                            Icons.Filled.Lock
+                        },
+                        contentDescription = stringResource(
+                            if (achievement.isUnlocked) {
+                                R.string.cd_achievement_unlocked
+                            } else {
+                                R.string.cd_achievement_locked
+                            }
+                        ),
+                        tint = if (achievement.isUnlocked) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
                 Spacer(Modifier.size(8.dp))
                 // Name and description hold their line count whether or not they need it.
                 // A grid row is as tall as its tallest tile, so a one-line name beside a
@@ -165,7 +176,7 @@ private fun AchievementTile(achievement: AchievementUi) {
                     } else {
                         achievement.name
                     },
-                    style = MaterialTheme.typography.titleSmall,
+                    style = nameStyle,
                     minLines = NAME_LINES,
                     maxLines = NAME_LINES,
                     overflow = TextOverflow.Ellipsis
