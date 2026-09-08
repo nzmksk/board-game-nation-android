@@ -137,14 +137,16 @@ private fun AchievementTile(achievement: AchievementUi) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(12.dp)) {
-            // The name reserves both its lines whether or not it needs them, so centring
-            // the icon on the Row hung it below a name that only used the first line.
-            // Sit it on that first line instead: top-aligned, centred in a box one line
-            // high, which follows the line height up at larger font scales.
+            // A grid row is as tall as its tallest tile, so the name holds room for both
+            // its lines whether or not it needs them. That room is reserved on the box
+            // rather than on the text: the row inside it is then only as tall as the name
+            // really is, and centring puts the icon on the middle of the name itself --
+            // on the single line, or between the two -- instead of on the empty line the
+            // reservation leaves under a short name.
             val nameStyle = MaterialTheme.typography.titleSmall
             val nameLineHeight = with(LocalDensity.current) { nameStyle.lineHeight.toDp() }
-            Row(verticalAlignment = Alignment.Top) {
-                Box(Modifier.height(nameLineHeight), contentAlignment = Alignment.Center) {
+            Box(Modifier.height(nameLineHeight * NAME_LINES)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = if (achievement.isUnlocked) {
                             Icons.Filled.EmojiEvents
@@ -165,22 +167,18 @@ private fun AchievementTile(achievement: AchievementUi) {
                         },
                         modifier = Modifier.size(20.dp)
                     )
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        text = if (achievement.isSecret) {
+                            stringResource(R.string.achievements_hidden_name)
+                        } else {
+                            achievement.name
+                        },
+                        style = nameStyle,
+                        maxLines = NAME_LINES,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
-                Spacer(Modifier.size(8.dp))
-                // Name and description hold their line count whether or not they need it.
-                // A grid row is as tall as its tallest tile, so a one-line name beside a
-                // two-line one left the row ragged.
-                Text(
-                    text = if (achievement.isSecret) {
-                        stringResource(R.string.achievements_hidden_name)
-                    } else {
-                        achievement.name
-                    },
-                    style = nameStyle,
-                    minLines = NAME_LINES,
-                    maxLines = NAME_LINES,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
             Spacer(Modifier.height(4.dp))
             Text(
@@ -191,6 +189,7 @@ private fun AchievementTile(achievement: AchievementUi) {
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // Nothing sits beside the description, so it can hold its own lines.
                 minLines = DESCRIPTION_LINES,
                 maxLines = DESCRIPTION_LINES,
                 overflow = TextOverflow.Ellipsis
