@@ -27,6 +27,16 @@ enum class TagKind {
     DESIGNER,
     CUSTOM;
 
+    /**
+     * Whether a tag of this kind belongs in a row of tag chips.
+     *
+     * A designer is a fact about the game rather than a label somebody chose to put on
+     * it, and it is already spelled out on its own line in the details, so a chip for it
+     * is a duplicate that crowds out the mechanics and categories people browse by.
+     */
+    val shownAsTag: Boolean
+        get() = this != DESIGNER
+
     companion object {
         fun fromStorage(value: String?): TagKind = entries.firstOrNull { it.name == value } ?: CUSTOM
     }
