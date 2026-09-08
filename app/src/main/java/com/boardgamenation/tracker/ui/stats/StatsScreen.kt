@@ -2,9 +2,12 @@ package com.boardgamenation.tracker.ui.stats
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -94,25 +97,22 @@ private fun CollectionTab(viewModel: StatsViewModel) {
     val locale = currentLocale()
     LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
-            Row(
-                Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            StatTileRow(Modifier.padding(16.dp)) {
                 StatTile(
                     label = stringResource(R.string.stats_total_games),
                     value = stats.ownedGames.toString(),
-                    modifier = Modifier.weight(1f)
+                    modifier = tileCell()
                 )
                 StatTile(
                     label = stringResource(R.string.stats_total_expansions),
                     value = stats.expansions.toString(),
-                    modifier = Modifier.weight(1f)
+                    modifier = tileCell()
                 )
                 StatTile(
                     label = stringResource(R.string.stats_collection_value),
                     value = String.format(locale, "%,.0f", stats.value),
                     supporting = stats.currency,
-                    modifier = Modifier.weight(1.2f)
+                    modifier = tileCell()
                 )
             }
         }
@@ -186,49 +186,47 @@ private fun PlaysTab(viewModel: StatsViewModel) {
     val locale = currentLocale()
     LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
-            Row(
+            // Both rows in one item, so the gap between them is the same 8dp the tiles
+            // keep from each other and the block is inset like the Collection tab's.
+            Column(
                 Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(StatTileGap)
             ) {
-                StatTile(
-                    label = stringResource(R.string.stats_total_plays),
-                    value = stats.totalPlays.toString(),
-                    modifier = Modifier.weight(1f)
-                )
-                StatTile(
-                    label = stringResource(R.string.stats_total_hours),
-                    value = DurationFormat.hoursOneDecimal(stats.totalMinutes),
-                    modifier = Modifier.weight(1f)
-                )
-                StatTile(
-                    label = stringResource(R.string.stats_distinct_games),
-                    value = stats.distinctGames.toString(),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        item {
-            Row(
-                Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                StatTile(
-                    label = stringResource(R.string.stats_streak),
-                    value = stats.streak.current.toString(),
-                    supporting = pluralStringResource(
-                        R.plurals.dashboard_streak_longest,
-                        stats.streak.longest,
-                        stats.streak.longest
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-                StatTile(
-                    label = stringResource(R.string.stats_h_index),
-                    value = stats.hIndex.toString(),
-                    supporting = pluralStringResource(R.plurals.stats_h_index_body, stats.hIndex, stats.hIndex),
-                    modifier = Modifier.weight(1.4f)
-                )
+                StatTileRow {
+                    StatTile(
+                        label = stringResource(R.string.stats_total_plays),
+                        value = stats.totalPlays.toString(),
+                        modifier = tileCell()
+                    )
+                    StatTile(
+                        label = stringResource(R.string.stats_total_hours),
+                        value = DurationFormat.hoursOneDecimal(stats.totalMinutes),
+                        modifier = tileCell()
+                    )
+                    StatTile(
+                        label = stringResource(R.string.stats_distinct_games),
+                        value = stats.distinctGames.toString(),
+                        modifier = tileCell()
+                    )
+                }
+                StatTileRow {
+                    StatTile(
+                        label = stringResource(R.string.stats_streak),
+                        value = stats.streak.current.toString(),
+                        supporting = pluralStringResource(
+                            R.plurals.dashboard_streak_longest,
+                            stats.streak.longest,
+                            stats.streak.longest
+                        ),
+                        modifier = tileCell()
+                    )
+                    StatTile(
+                        label = stringResource(R.string.stats_h_index),
+                        value = stats.hIndex.toString(),
+                        supporting = pluralStringResource(R.plurals.stats_h_index_body, stats.hIndex, stats.hIndex),
+                        modifier = tileCell()
+                    )
+                }
             }
         }
 
@@ -492,6 +490,29 @@ private fun PlayersTab(viewModel: StatsViewModel) {
         }
     }
 }
+
+/** What a row of headline figures leaves between one tile and the next. */
+private val StatTileGap = 8.dp
+
+/**
+ * A row of headline figures, laid out as equal cells.
+ *
+ * The row takes the height of the tallest tile in it -- hence the intrinsic measure --
+ * and every cell fills up to it. Without that, a tile carrying a supporting line stood
+ * taller than its neighbours and one carrying two lines stood taller again, so no row of
+ * figures on the screen read as a row.
+ */
+@Composable
+private fun StatTileRow(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = modifier.height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(StatTileGap),
+        content = content
+    )
+}
+
+/** One cell of a [StatTileRow]: an equal share of the width, and the full height. */
+private fun RowScope.tileCell(): Modifier = Modifier.weight(1f).fillMaxHeight()
 
 @Composable
 private fun ChartCard(content: @Composable () -> Unit) {
