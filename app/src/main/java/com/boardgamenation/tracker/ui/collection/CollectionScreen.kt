@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -70,11 +71,27 @@ import com.boardgamenation.tracker.domain.model.CollectionSort
 import com.boardgamenation.tracker.domain.model.GameStatus
 import com.boardgamenation.tracker.domain.model.PlaytimeBucket
 import com.boardgamenation.tracker.domain.model.TagKind
+import com.boardgamenation.tracker.ui.components.BottomBarGap
 import com.boardgamenation.tracker.ui.components.ConfirmDialog
 import com.boardgamenation.tracker.ui.components.EmptyState
 import com.boardgamenation.tracker.ui.components.GameThumbnail
 import com.boardgamenation.tracker.ui.components.LoadingRows
 import com.boardgamenation.tracker.ui.components.currentLocale
+
+/** The gutter the search field, the filter chips and the cards all sit on. */
+private val ScreenGutter = 12.dp
+
+/** Padding an IconButton keeps around its 24dp icon inside its 48dp target. */
+private val IconButtonInset = 12.dp
+
+/** What TopAppBar leaves between its last action and the edge of the screen. */
+private val BarActionInset = 4.dp
+
+/** Brings the sort icon in from 16dp off the edge to the gutter. */
+private val SortIconShift = IconButtonInset + BarActionInset - ScreenGutter
+
+/** Brings the layout icon in far enough that the two icons sit a gutter apart too. */
+private val LayoutIconShift = SortIconShift + IconButtonInset * 2 - ScreenGutter
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -100,7 +117,16 @@ fun CollectionScreen(onOpenGame: (Long) -> Unit, onAddGame: () -> Unit, viewMode
                 TopAppBar(
                     title = { Text(stringResource(R.string.collection_title)) },
                     actions = {
-                        IconButton(onClick = viewModel::toggleLayout) {
+                        // Each 48dp button carries 12dp of padding around its icon and the
+                        // bar adds 4dp after the last one, so the icons read 24dp apart and
+                        // 16dp off the edge -- wider than the 12dp gutter everything below
+                        // them shares. Nudging both right closes the two gaps to that
+                        // gutter. The targets stay 48dp and simply overlap by the 12dp they
+                        // lose; the sort button draws last, so it owns the shared strip.
+                        IconButton(
+                            onClick = viewModel::toggleLayout,
+                            modifier = Modifier.offset(x = LayoutIconShift)
+                        ) {
                             Icon(
                                 imageVector = if (state.layout == CollectionLayout.LIST) {
                                     Icons.Filled.GridView
@@ -116,7 +142,7 @@ fun CollectionScreen(onOpenGame: (Long) -> Unit, onAddGame: () -> Unit, viewMode
                                 )
                             )
                         }
-                        Box {
+                        Box(Modifier.offset(x = SortIconShift)) {
                             IconButton(onClick = { sortMenuOpen = true }) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.Sort,
@@ -470,6 +496,9 @@ private fun FilterChipRow(
 @Composable
 private fun GameList(games: List<GameListItem>, selection: Set<Long>, onOpen: (Long) -> Unit, onToggleSelect: (Long) -> Unit) {
     LazyColumn(
+        // Padding, not contentPadding: this gap has to stay put while the list scrolls
+        // through it, the way the one above the first card does.
+        modifier = Modifier.padding(bottom = BottomBarGap),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             start = 12.dp,
             end = 12.dp,
@@ -562,6 +591,7 @@ private fun GameRow(game: GameListItem, selected: Boolean, onOpen: () -> Unit, o
 private fun GameGrid(games: List<GameListItem>, selection: Set<Long>, onOpen: (Long) -> Unit, onToggleSelect: (Long) -> Unit) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 112.dp),
+        modifier = Modifier.padding(bottom = BottomBarGap),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             start = 12.dp,
             end = 12.dp,
@@ -593,7 +623,9 @@ private fun GameTile(game: GameListItem, selected: Boolean, onOpen: () -> Unit, 
                 MaterialTheme.colorScheme.surfaceContainerLow
             }
         ),
-        modifier = Modifier.combinedClickable(onClick = onOpen, onLongClick = onToggleSelect)
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onOpen, onLongClick = onToggleSelect)
     ) {
         Column(Modifier.padding(8.dp)) {
             GameThumbnail(
@@ -603,10 +635,14 @@ private fun GameTile(game: GameListItem, selected: Boolean, onOpen: () -> Unit, 
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
             Spacer(Modifier.height(6.dp))
+            // Two lines whether the title needs them or not. A grid row is only as tall as
+            // its tallest tile, so letting a one-line title shrink its own card left the
+            // row ragged -- one short card sitting beside a tall one.
             Text(
                 text = game.title,
                 style = MaterialTheme.typography.labelLarge,
-                maxLines = 2,
+                minLines = TITLE_LINES,
+                maxLines = TITLE_LINES,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
@@ -673,3 +709,6 @@ internal fun PlaytimeBucket.labelRes(): Int = when (this) {
 
 /** Per-kind cap on the filter row, so no one kind can crowd out the others. */
 private const val TAG_CHIPS_PER_KIND = 8
+
+/** Lines a grid tile reserves for the title, so every tile in a row is the same height. */
+private const val TITLE_LINES = 2

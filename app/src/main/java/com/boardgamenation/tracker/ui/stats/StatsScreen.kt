@@ -2,9 +2,12 @@ package com.boardgamenation.tracker.ui.stats
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -36,6 +39,7 @@ import com.boardgamenation.tracker.R
 import com.boardgamenation.tracker.core.time.DurationFormat
 import com.boardgamenation.tracker.data.db.projection.CostPerPlayRow
 import com.boardgamenation.tracker.data.db.projection.LabelledValue
+import com.boardgamenation.tracker.ui.components.BottomBarGap
 import com.boardgamenation.tracker.ui.components.DivergingBarChart
 import com.boardgamenation.tracker.ui.components.HorizontalBarChart
 import com.boardgamenation.tracker.ui.components.LineChart
@@ -63,7 +67,9 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.stats_title)) }) }
     ) { padding ->
-        Column(Modifier.padding(padding)) {
+        // The gap above the tab row goes on the column rather than on each tab's list:
+        // all four scroll to the bottom of the screen and all four need it.
+        Column(Modifier.padding(padding).padding(bottom = BottomBarGap)) {
             // Primary rather than secondary: these four are this screen's top-level
             // navigation, not a subdivision of something above them.
             PrimaryTabRow(selectedTabIndex = tab) {
@@ -91,25 +97,22 @@ private fun CollectionTab(viewModel: StatsViewModel) {
     val locale = currentLocale()
     LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
-            Row(
-                Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            StatTileRow(Modifier.padding(16.dp)) {
                 StatTile(
                     label = stringResource(R.string.stats_total_games),
                     value = stats.ownedGames.toString(),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
                 StatTile(
                     label = stringResource(R.string.stats_total_expansions),
                     value = stats.expansions.toString(),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
                 StatTile(
                     label = stringResource(R.string.stats_collection_value),
                     value = String.format(locale, "%,.0f", stats.value),
                     supporting = stats.currency,
-                    modifier = Modifier.weight(1.2f)
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
             }
         }
@@ -183,49 +186,47 @@ private fun PlaysTab(viewModel: StatsViewModel) {
     val locale = currentLocale()
     LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
-            Row(
+            // Both rows in one item, so the gap between them is the same 8dp the tiles
+            // keep from each other and the block is inset like the Collection tab's.
+            Column(
                 Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(StatTileGap)
             ) {
-                StatTile(
-                    label = stringResource(R.string.stats_total_plays),
-                    value = stats.totalPlays.toString(),
-                    modifier = Modifier.weight(1f)
-                )
-                StatTile(
-                    label = stringResource(R.string.stats_total_hours),
-                    value = DurationFormat.hoursOneDecimal(stats.totalMinutes),
-                    modifier = Modifier.weight(1f)
-                )
-                StatTile(
-                    label = stringResource(R.string.stats_distinct_games),
-                    value = stats.distinctGames.toString(),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        item {
-            Row(
-                Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                StatTile(
-                    label = stringResource(R.string.stats_streak),
-                    value = stats.streak.current.toString(),
-                    supporting = pluralStringResource(
-                        R.plurals.dashboard_streak_longest,
-                        stats.streak.longest,
-                        stats.streak.longest
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-                StatTile(
-                    label = stringResource(R.string.stats_h_index),
-                    value = stats.hIndex.toString(),
-                    supporting = pluralStringResource(R.plurals.stats_h_index_body, stats.hIndex, stats.hIndex),
-                    modifier = Modifier.weight(1.4f)
-                )
+                StatTileRow {
+                    StatTile(
+                        label = stringResource(R.string.stats_total_plays),
+                        value = stats.totalPlays.toString(),
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                    StatTile(
+                        label = stringResource(R.string.stats_total_hours),
+                        value = DurationFormat.hoursOneDecimal(stats.totalMinutes),
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                    StatTile(
+                        label = stringResource(R.string.stats_distinct_games),
+                        value = stats.distinctGames.toString(),
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                }
+                StatTileRow {
+                    StatTile(
+                        label = stringResource(R.string.stats_streak),
+                        value = stats.streak.current.toString(),
+                        supporting = pluralStringResource(
+                            R.plurals.dashboard_streak_longest,
+                            stats.streak.longest,
+                            stats.streak.longest
+                        ),
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                    StatTile(
+                        label = stringResource(R.string.stats_h_index),
+                        value = stats.hIndex.toString(),
+                        supporting = pluralStringResource(R.plurals.stats_h_index_body, stats.hIndex, stats.hIndex),
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                }
             }
         }
 
@@ -488,6 +489,26 @@ private fun PlayersTab(viewModel: StatsViewModel) {
             }
         }
     }
+}
+
+/** What a row of headline figures leaves between one tile and the next. */
+private val StatTileGap = 8.dp
+
+/**
+ * A row of headline figures, laid out as equal cells.
+ *
+ * The row takes the height of the tallest tile in it -- hence the intrinsic measure --
+ * and each tile fills up to it with `Modifier.weight(1f).fillMaxHeight()`. Without that,
+ * a tile carrying a supporting line stood taller than its neighbours and one carrying two
+ * lines stood taller again, so no row of figures on the screen read as a row.
+ */
+@Composable
+private fun StatTileRow(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = modifier.height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(StatTileGap),
+        content = content
+    )
 }
 
 @Composable

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -27,7 +28,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -134,88 +137,131 @@ private fun AchievementTile(achievement: AchievementUi) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Icon(
-                    imageVector = if (achievement.isUnlocked) {
-                        Icons.Filled.EmojiEvents
-                    } else {
-                        Icons.Filled.Lock
-                    },
-                    contentDescription = stringResource(
-                        if (achievement.isUnlocked) {
-                            R.string.cd_achievement_unlocked
-                        } else {
-                            R.string.cd_achievement_locked
-                        }
-                    ),
-                    tint = if (achievement.isUnlocked) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier.size(20.dp)
+            // A grid row is as tall as its tallest tile, so the name and the description
+            // together hold room for their full line counts whether or not they need them.
+            //
+            // Reserved across the pair rather than on each of them: reserving it on the
+            // name left a one-line name sitting above an empty line, which read as a gap
+            // between the name and the description rather than as the slack it was. Held
+            // by the pair, the slack collects under the description, where the tile has
+            // space to give, and the description stays where it belongs -- one gap under
+            // the name, wherever the name ends.
+            //
+            // A minimum, not a fixed height. A fixed one is a maximum too, and a name that
+            // needed its second line was measured against a box that had rounded a fraction
+            // of a pixel off the two it reserved -- so the second line did not fit and the
+            // name was ellipsised onto one instead of wrapping.
+            val nameStyle = MaterialTheme.typography.titleSmall
+            val descriptionStyle = MaterialTheme.typography.bodySmall
+            val density = LocalDensity.current
+            val nameLineHeight = with(density) { nameStyle.lineHeight.toDp() }
+            val descriptionLineHeight = with(density) { descriptionStyle.lineHeight.toDp() }
+            Column(
+                Modifier.heightIn(
+                    min = nameLineHeight * NAME_LINES +
+                        NameDescriptionGap +
+                        descriptionLineHeight * DESCRIPTION_LINES
                 )
-                Spacer(Modifier.size(8.dp))
+            ) {
+                // Only as tall as the name really is, so centring puts the icon on the
+                // middle of the name itself -- on the single line, or between the two.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (achievement.isUnlocked) {
+                            Icons.Filled.EmojiEvents
+                        } else {
+                            Icons.Filled.Lock
+                        },
+                        contentDescription = stringResource(
+                            if (achievement.isUnlocked) {
+                                R.string.cd_achievement_unlocked
+                            } else {
+                                R.string.cd_achievement_locked
+                            }
+                        ),
+                        tint = if (achievement.isUnlocked) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        text = if (achievement.isSecret) {
+                            stringResource(R.string.achievements_hidden_name)
+                        } else {
+                            achievement.name
+                        },
+                        style = nameStyle,
+                        maxLines = NAME_LINES,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(Modifier.height(NameDescriptionGap))
                 Text(
                     text = if (achievement.isSecret) {
-                        stringResource(R.string.achievements_hidden_name)
+                        stringResource(R.string.achievements_hidden_description)
                     } else {
-                        achievement.name
+                        achievement.description
                     },
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 2,
+                    style = descriptionStyle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = DESCRIPTION_LINES,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = if (achievement.isSecret) {
-                    stringResource(R.string.achievements_hidden_description)
-                } else {
-                    achievement.description
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
             Spacer(Modifier.height(8.dp))
 
-            if (achievement.isUnlocked) {
-                Text(
-                    text = stringResource(
+            // Every tile ends on a bar and a single status line, so the footer is the same
+            // height whatever state the achievement is in. A hidden one still shows the
+            // bar: the secret is what it is for, not how close you are.
+            LinearProgressIndicator(
+                progress = { if (achievement.isUnlocked) 1f else achievement.progress.fraction },
+                color = if (achievement.isUnlocked) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.primary
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = when {
+                    achievement.isUnlocked -> stringResource(
                         R.string.achievements_unlocked_on,
                         achievement.unlockedAt?.let { DateUtils.epochMillisToIso(it) }.orEmpty()
-                    ),
-                    style = MaterialTheme.typography.labelSmall
-                )
-            } else if (achievement.progress.target > 0) {
-                // Locked tiles show how far along they are. A hidden one still shows the
-                // bar: the secret is what it is for, not how close you are.
-                LinearProgressIndicator(
-                    progress = { achievement.progress.fraction },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = stringResource(
+                    )
+
+                    achievement.progress.target > 0 -> stringResource(
                         R.string.achievements_progress_value,
                         formatValue(achievement.progress.current),
                         formatValue(achievement.progress.target)
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.achievements_locked),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+                    )
+
+                    else -> stringResource(R.string.achievements_locked)
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = if (achievement.isUnlocked) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
+
+/** Lines a tile reserves for the name, so every tile in a row is the same height. */
+private const val NAME_LINES = 2
+
+/** Lines a tile reserves for the description, for the same reason. */
+private const val DESCRIPTION_LINES = 3
+
+/** The one gap between a tile's name and its description, however long either runs. */
+private val NameDescriptionGap = 4.dp
 
 /** Whole numbers stay whole; hours and rates keep one decimal. */
 private fun formatValue(value: Double): String = if (value % 1.0 == 0.0) {

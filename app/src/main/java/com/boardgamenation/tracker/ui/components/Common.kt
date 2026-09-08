@@ -54,6 +54,15 @@ import com.boardgamenation.tracker.core.time.DateUtils
 import java.io.File
 import java.time.ZoneOffset
 
+/**
+ * The gap a screen keeps between its content and the bottom navigation bar.
+ *
+ * Applied as padding rather than contentPadding wherever a list carries it: the gap has
+ * to stay put while the list scrolls through it, which contentPadding only manages at
+ * the ends. Matches the 4dp above and below a list's first card.
+ */
+val BottomBarGap = 8.dp
+
 /** The standard "there is nothing here, and here is what to do about it" panel. */
 @Composable
 fun EmptyState(

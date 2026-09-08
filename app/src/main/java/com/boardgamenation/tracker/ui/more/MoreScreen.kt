@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.boardgamenation.tracker.R
+import com.boardgamenation.tracker.ui.components.BottomBarGap
 
 /** The overflow destination for everything that does not earn a bottom-bar slot. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,7 +47,9 @@ fun MoreScreen(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.nav_more)) }) }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.padding(padding),
+            // Padding, not contentPadding: the gap above the tab row has to stay put
+            // while the list scrolls through it.
+            modifier = Modifier.padding(padding).padding(bottom = BottomBarGap),
             contentPadding = PaddingValues(vertical = 8.dp)
         ) {
             item {

@@ -57,6 +57,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.boardgamenation.tracker.R
 import com.boardgamenation.tracker.domain.model.TimerMode
+import com.boardgamenation.tracker.ui.components.BottomBarGap
 import com.boardgamenation.tracker.ui.components.PlayerDot
 import com.boardgamenation.tracker.ui.components.SectionHeader
 import com.boardgamenation.tracker.ui.theme.LocalChartColors
@@ -99,7 +100,9 @@ fun TimerSetupScreen(onStarted: () -> Unit, viewModel: TimerViewModel = hiltView
         topBar = { TopAppBar(title = { Text(stringResource(R.string.timer_setup_title)) }) }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.padding(padding),
+            // Padding, not contentPadding: the gap above the tab row has to stay put
+            // while the list scrolls through it.
+            modifier = Modifier.padding(padding).padding(bottom = BottomBarGap),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
