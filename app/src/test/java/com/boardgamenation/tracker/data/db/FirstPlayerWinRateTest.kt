@@ -84,7 +84,7 @@ class FirstPlayerWinRateTest {
         )
     }
 
-    private suspend fun record(game: Long? = null) = repository.firstPlayerRecord(game).first()
+    private suspend fun record(game: Long = gameId) = repository.firstPlayerRecord(game).first()
 
     @Test
     fun `the record counts the plays where the starting player won`() = runTest {
@@ -195,15 +195,17 @@ class FirstPlayerWinRateTest {
     }
 
     @Test
-    fun `the advantage can be read for one game rather than the shelf`() = runTest {
+    fun `each game keeps its own record`() = runTest {
+        // The whole point of the metric: going first is worth something at one game
+        // and nothing at the next, so the two never fall into the same pile.
         val root = db.gameDao().insert(DatabaseTestFixture.game("Root"))
         play(game = gameId, firstWon = true)
         play(game = root, firstWon = false)
         play(game = root, firstWon = false)
 
-        assertEquals(3, record().plays)
         assertEquals(1, record(gameId).plays)
         assertEquals(100, record(gameId).winPercent)
+        assertEquals(2, record(root).plays)
         assertEquals(0, record(root).winPercent)
     }
 
