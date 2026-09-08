@@ -1,7 +1,6 @@
 package com.boardgamenation.tracker.ui.achievements
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -138,20 +137,34 @@ private fun AchievementTile(achievement: AchievementUi) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(12.dp)) {
-            // A grid row is as tall as its tallest tile, so the name holds room for both
-            // its lines whether or not it needs them. That room is reserved on the box
-            // rather than on the text: the row inside it is then only as tall as the name
-            // really is, and centring puts the icon on the middle of the name itself --
-            // on the single line, or between the two -- instead of on the empty line the
-            // reservation leaves under a short name.
+            // A grid row is as tall as its tallest tile, so the name and the description
+            // together hold room for their full line counts whether or not they need them.
+            //
+            // Reserved across the pair rather than on each of them: reserving it on the
+            // name left a one-line name sitting above an empty line, which read as a gap
+            // between the name and the description rather than as the slack it was. Held
+            // by the pair, the slack collects under the description, where the tile has
+            // space to give, and the description stays where it belongs -- one gap under
+            // the name, wherever the name ends.
             //
             // A minimum, not a fixed height. A fixed one is a maximum too, and a name that
             // needed its second line was measured against a box that had rounded a fraction
             // of a pixel off the two it reserved -- so the second line did not fit and the
             // name was ellipsised onto one instead of wrapping.
             val nameStyle = MaterialTheme.typography.titleSmall
-            val nameLineHeight = with(LocalDensity.current) { nameStyle.lineHeight.toDp() }
-            Box(Modifier.heightIn(min = nameLineHeight * NAME_LINES)) {
+            val descriptionStyle = MaterialTheme.typography.bodySmall
+            val density = LocalDensity.current
+            val nameLineHeight = with(density) { nameStyle.lineHeight.toDp() }
+            val descriptionLineHeight = with(density) { descriptionStyle.lineHeight.toDp() }
+            Column(
+                Modifier.heightIn(
+                    min = nameLineHeight * NAME_LINES +
+                        NameDescriptionGap +
+                        descriptionLineHeight * DESCRIPTION_LINES
+                )
+            ) {
+                // Only as tall as the name really is, so centring puts the icon on the
+                // middle of the name itself -- on the single line, or between the two.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = if (achievement.isUnlocked) {
@@ -185,21 +198,19 @@ private fun AchievementTile(achievement: AchievementUi) {
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+                Spacer(Modifier.height(NameDescriptionGap))
+                Text(
+                    text = if (achievement.isSecret) {
+                        stringResource(R.string.achievements_hidden_description)
+                    } else {
+                        achievement.description
+                    },
+                    style = descriptionStyle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = DESCRIPTION_LINES,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = if (achievement.isSecret) {
-                    stringResource(R.string.achievements_hidden_description)
-                } else {
-                    achievement.description
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                // Nothing sits beside the description, so it can hold its own lines.
-                minLines = DESCRIPTION_LINES,
-                maxLines = DESCRIPTION_LINES,
-                overflow = TextOverflow.Ellipsis
-            )
             Spacer(Modifier.height(8.dp))
 
             // Every tile ends on a bar and a single status line, so the footer is the same
@@ -248,6 +259,9 @@ private const val NAME_LINES = 2
 
 /** Lines a tile reserves for the description, for the same reason. */
 private const val DESCRIPTION_LINES = 3
+
+/** The one gap between a tile's name and its description, however long either runs. */
+private val NameDescriptionGap = 4.dp
 
 /** Whole numbers stay whole; hours and rates keep one decimal. */
 private fun formatValue(value: Double): String = if (value % 1.0 == 0.0) {
