@@ -361,8 +361,6 @@
         <item quantity="one">%1$d game played at least %1$d time.</item>
         <item quantity="other">%1$d games played at least %1$d times each.</item>
     </plurals>
-    <string name="stats_first_player">First player advantage</string>
-    <string name="stats_first_player_body">How often the player who went first won, against what the first seat would have won if going first meant nothing.</string>
     <string name="stats_first_player_actual">Went first</string>
     <string name="stats_first_player_chance">By chance</string>
     <string name="stats_first_player_percent">%1$d%%</string>

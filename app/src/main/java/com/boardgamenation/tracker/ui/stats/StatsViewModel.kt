@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.boardgamenation.tracker.data.db.projection.CostPerPlayRow
 import com.boardgamenation.tracker.data.db.projection.DurationVsExpectedRow
-import com.boardgamenation.tracker.data.db.projection.FirstPlayerRecord
 import com.boardgamenation.tracker.data.db.projection.HeadToHeadRow
 import com.boardgamenation.tracker.data.db.projection.LabelledValue
 import com.boardgamenation.tracker.data.db.projection.PlayerStandingRow
@@ -44,10 +43,7 @@ data class PlayStats(
     val shortest: List<SessionListItem> = emptyList(),
     val durationVsExpected: List<DurationVsExpectedRow> = emptyList(),
     val streak: StreakResult = StreakResult(0, 0),
-    val hIndex: Int = 0,
-
-    /** Empty until a play names a starting player; the card reads that as no data. */
-    val firstPlayer: FirstPlayerRecord = FirstPlayerRecord(0, 0, null)
+    val hIndex: Int = 0
 )
 
 data class ValueStats(
@@ -124,13 +120,11 @@ class StatsViewModel @Inject constructor(private val statsRepository: StatsRepos
         ) { months, days, most -> Triple(months, days, most) },
         combine(
             statsRepository.longestSessions(),
-            statsRepository.shortestSessions(),
-            statsRepository.firstPlayerRecord(),
-            ::Triple
-        ),
+            statsRepository.shortestSessions()
+        ) { longest, shortest -> longest to shortest },
         statsRepository.durationVsExpected(),
         statsRepository.weeklyStreak()
-    ) { totals, (months, days, most), (longest, shortest, firstPlayer), divergence, streak ->
+    ) { totals, (months, days, most), (longest, shortest), divergence, streak ->
         PlayStats(
             totalPlays = totals[0],
             totalMinutes = totals[1],
@@ -142,8 +136,7 @@ class StatsViewModel @Inject constructor(private val statsRepository: StatsRepos
             longest = longest,
             shortest = shortest,
             durationVsExpected = divergence,
-            streak = streak,
-            firstPlayer = firstPlayer
+            streak = streak
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlayStats())
 
