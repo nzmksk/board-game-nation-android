@@ -241,8 +241,8 @@ interface StatsDao {
     fun observeHIndex(): Flow<Int>
 
     /**
-     * How often the player who went first won, and how often the first seat would have
-     * won if going first meant nothing.
+     * How often the player who went first won one game, and how often the first seat
+     * would have won it if going first meant nothing.
      *
      * The bare rate is not readable on its own: 40% is a rout at a table of five and a
      * losing record at a table of two. The chance figure is the average, per play, of
@@ -256,8 +256,9 @@ interface StatsDao {
      * while measuring nothing, and plays with no winner recorded, which would drag it
      * down the same way.
      *
-     * Passing a game id narrows it to that game, which is the form worth reading: a
-     * first-player advantage is a property of a game, not of a shelf.
+     * Always one game: a first-player advantage is a property of a game, not of a
+     * shelf, so averaging it over a collection mixes games that hand the first seat an
+     * edge with games that hand it nothing and reads as neither.
      */
     @Query(
         """
@@ -272,7 +273,7 @@ interface StatsDao {
             FROM sessions s
             JOIN session_players sp ON sp.session_id = s.id
             WHERE s.is_draft = 0 AND s.is_incomplete = 0 AND s.is_cooperative = 0
-              AND (:gameId IS NULL OR s.game_id = :gameId)
+              AND s.game_id = :gameId
             GROUP BY s.id
             HAVING SUM(sp.turn_order = 1) = 1
                AND COUNT(*) > 1
@@ -280,7 +281,7 @@ interface StatsDao {
         ) t
         """
     )
-    fun observeFirstPlayerRecord(gameId: Long?): Flow<FirstPlayerRecord>
+    fun observeFirstPlayerRecord(gameId: Long): Flow<FirstPlayerRecord>
 
     // --- value --------------------------------------------------------------------
 

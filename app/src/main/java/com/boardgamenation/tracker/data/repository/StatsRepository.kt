@@ -47,13 +47,13 @@ class StatsRepository @Inject constructor(private val statsDao: StatsDao, privat
     fun hIndex(): Flow<Int> = statsDao.observeHIndex()
 
     /**
-     * How the first seat has fared, over every game or over one of them.
+     * How the first seat has fared at one game.
      *
      * Returned whole rather than as a bare percentage: the rate is only readable
      * beside the chance baseline that travels with it, and the play count is what
      * separates a finding from a coincidence.
      */
-    fun firstPlayerRecord(gameId: Long? = null): Flow<FirstPlayerRecord> = statsDao.observeFirstPlayerRecord(gameId)
+    fun firstPlayerRecord(gameId: Long): Flow<FirstPlayerRecord> = statsDao.observeFirstPlayerRecord(gameId)
 
     /**
      * The weekly streak.
