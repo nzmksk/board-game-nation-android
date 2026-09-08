@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -79,6 +80,21 @@ import com.boardgamenation.tracker.ui.components.currentLocale
 /** Matches the 4dp under the game count plus the 4dp above the first card. */
 private val ListBottomGap = 8.dp
 
+/** The gutter the search field, the filter chips and the cards all sit on. */
+private val ScreenGutter = 12.dp
+
+/** Padding an IconButton keeps around its 24dp icon inside its 48dp target. */
+private val IconButtonInset = 12.dp
+
+/** What TopAppBar leaves between its last action and the edge of the screen. */
+private val BarActionInset = 4.dp
+
+/** Brings the sort icon in from 16dp off the edge to the gutter. */
+private val SortIconShift = IconButtonInset + BarActionInset - ScreenGutter
+
+/** Brings the layout icon in far enough that the two icons sit a gutter apart too. */
+private val LayoutIconShift = SortIconShift + IconButtonInset * 2 - ScreenGutter
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CollectionScreen(onOpenGame: (Long) -> Unit, onAddGame: () -> Unit, viewModel: CollectionViewModel = hiltViewModel()) {
@@ -103,7 +119,16 @@ fun CollectionScreen(onOpenGame: (Long) -> Unit, onAddGame: () -> Unit, viewMode
                 TopAppBar(
                     title = { Text(stringResource(R.string.collection_title)) },
                     actions = {
-                        IconButton(onClick = viewModel::toggleLayout) {
+                        // Each 48dp button carries 12dp of padding around its icon and the
+                        // bar adds 4dp after the last one, so the icons read 24dp apart and
+                        // 16dp off the edge -- wider than the 12dp gutter everything below
+                        // them shares. Nudging both right closes the two gaps to that
+                        // gutter. The targets stay 48dp and simply overlap by the 12dp they
+                        // lose; the sort button draws last, so it owns the shared strip.
+                        IconButton(
+                            onClick = viewModel::toggleLayout,
+                            modifier = Modifier.offset(x = LayoutIconShift)
+                        ) {
                             Icon(
                                 imageVector = if (state.layout == CollectionLayout.LIST) {
                                     Icons.Filled.GridView
@@ -119,10 +144,7 @@ fun CollectionScreen(onOpenGame: (Long) -> Unit, onAddGame: () -> Unit, viewMode
                                 )
                             )
                         }
-                        // The two 48dp buttons sit 24dp apart (12dp of internal padding
-                        // each), but the bar only leaves 4dp after the last one. The extra
-                        // 8dp evens the trailing edge up with the gap between them.
-                        Box(Modifier.padding(end = 8.dp)) {
+                        Box(Modifier.offset(x = SortIconShift)) {
                             IconButton(onClick = { sortMenuOpen = true }) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.Sort,
