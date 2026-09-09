@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
@@ -39,6 +40,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -79,6 +81,7 @@ import com.boardgamenation.tracker.domain.model.ParticipantForm
 import com.boardgamenation.tracker.domain.model.ScoringMode
 import com.boardgamenation.tracker.domain.model.Seating
 import com.boardgamenation.tracker.domain.model.SessionEndCondition
+import com.boardgamenation.tracker.domain.model.SessionModes
 import com.boardgamenation.tracker.share.shareImageChooser
 import com.boardgamenation.tracker.ui.components.ConfirmDialog
 import com.boardgamenation.tracker.ui.components.IsoDateField
@@ -288,33 +291,12 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
             // equally Catan's scenario, Azul's board side, the expansions on the table.
             // The result alone does not say which of those was played.
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = state.form.mode.orEmpty(),
-                        onValueChange = { value ->
-                            viewModel.update { it.copy(mode = value) }
-                        },
-                        label = { Text(stringResource(R.string.session_edit_mode)) },
-                        placeholder = { Text(stringResource(R.string.session_edit_mode_hint)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (state.previousModes.isNotEmpty()) {
-                        Text(
-                            text = stringResource(R.string.session_edit_mode_previous),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            state.previousModes.forEach { mode ->
-                                FilterChip(
-                                    selected = state.form.mode == mode,
-                                    onClick = { viewModel.update { it.copy(mode = mode) } },
-                                    label = { Text(mode) }
-                                )
-                            }
-                        }
-                    }
-                }
+                ModeEditor(
+                    modes = state.form.modes,
+                    suggestions = state.previousModes,
+                    onAdd = viewModel::addMode,
+                    onRemove = viewModel::removeMode
+                )
             }
 
             // Sides are named on the player cards below; this is only the result. The
@@ -585,6 +567,81 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
             },
             onDismiss = { deleteOpen = false }
         )
+    }
+}
+
+/**
+ * The configurations a play was set up with, entered one at a time.
+ *
+ * A field with an add button rather than a field holding the whole answer, because the
+ * answer is usually several: a race in Heat is Championship, and Legends, and Weather.
+ * Each is a chip that can be taken off on its own, and the ones this game has already
+ * been played under are offered below to be tapped back on.
+ *
+ * A suggestion already on the play is not offered again. It is sitting above with a
+ * cross on it, and showing it twice would only make the copy down here look unselected.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ModeEditor(modes: List<String>, suggestions: List<String>, onAdd: (String) -> Unit, onRemove: (String) -> Unit) {
+    var input by remember { mutableStateOf("") }
+    val unused = suggestions.filterNot { SessionModes.contains(modes, it) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = input,
+                onValueChange = { input = it },
+                label = { Text(stringResource(R.string.session_edit_mode)) },
+                placeholder = { Text(stringResource(R.string.session_edit_mode_hint)) },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(8.dp))
+            IconButton(
+                onClick = {
+                    onAdd(input)
+                    input = ""
+                },
+                enabled = input.isNotBlank()
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.action_add))
+            }
+        }
+
+        if (modes.isNotEmpty()) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                modes.forEach { mode ->
+                    InputChip(
+                        selected = true,
+                        onClick = { onRemove(mode) },
+                        label = { Text(mode) },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.action_delete)
+                            )
+                        }
+                    )
+                }
+            }
+        }
+
+        if (unused.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.session_edit_mode_previous),
+                style = MaterialTheme.typography.labelSmall
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                unused.forEach { mode ->
+                    FilterChip(
+                        selected = false,
+                        onClick = { onAdd(mode) },
+                        label = { Text(mode) }
+                    )
+                }
+            }
+        }
     }
 }
 

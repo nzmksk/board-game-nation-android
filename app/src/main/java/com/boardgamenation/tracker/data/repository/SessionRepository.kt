@@ -17,6 +17,7 @@ import com.boardgamenation.tracker.domain.model.ScoringMode
 import com.boardgamenation.tracker.domain.model.Seating
 import com.boardgamenation.tracker.domain.model.SessionEndCondition
 import com.boardgamenation.tracker.domain.model.SessionForm
+import com.boardgamenation.tracker.domain.model.SessionModes
 import com.boardgamenation.tracker.domain.model.TurnOrder
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -98,6 +99,15 @@ class SessionRepository @Inject constructor(
             .filter { it.sessionId == sessionId }
             .map { it.gameId }
 
+        // A play with a configuration but no rows for it has its whole answer in the
+        // column, and one label is exactly what that means. The migration converted
+        // every row that existed and an import converts what it is given, so this speaks
+        // for the ones that arrive some third way -- a draft the timer wrote, a row
+        // restored straight into the file -- rather than letting them read back blank
+        // and be saved that way.
+        val modes = sessionDao.getModes(sessionId).map { it.mode }
+            .ifEmpty { listOfNotNull(session.mode?.takeIf { it.isNotBlank() }) }
+
         val scoringMode = when {
             session.isCooperative -> ScoringMode.COOPERATIVE
 
@@ -146,7 +156,7 @@ class SessionRepository @Inject constructor(
             scoringMode = scoringMode,
             highScoreWins = game?.highScoreWins ?: true,
             coopOutcome = session.coopOutcome,
-            mode = session.mode,
+            modes = modes,
 
             // The winning side is read back off the winners rather than stored twice.
             winningTeam = participants.firstOrNull { it.isWinner }?.team,
@@ -184,7 +194,9 @@ class SessionRepository @Inject constructor(
             location = form.location?.takeIf { it.isNotBlank() },
             isCooperative = form.isCooperative,
             coopOutcome = if (form.isCooperative) form.coopOutcome ?: CoopOutcome.NA else null,
-            mode = form.mode?.takeIf { it.isNotBlank() },
+            // Written from the set rather than beside it, so the line every list shows
+            // and the set every query filters on cannot come to say different things.
+            mode = SessionModes.label(form.modes),
             endCondition = form.endCondition,
             endReason = form.endReason?.takeIf { it.isNotBlank() && form.endedEarly },
             // Still written, because every statistic that excludes an abandoned play
@@ -217,7 +229,7 @@ class SessionRepository @Inject constructor(
             )
         }
 
-        val id = sessionDao.saveComplete(entity, rows, form.expansionIds)
+        val id = sessionDao.saveComplete(entity, rows, form.expansionIds, SessionModes.clean(form.modes))
 
         // The scoring mode the user actually used is the one worth remembering.
         gameDao.getGame(form.gameId)?.let { game ->

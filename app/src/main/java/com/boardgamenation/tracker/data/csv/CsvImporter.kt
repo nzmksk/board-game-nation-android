@@ -22,6 +22,7 @@ import com.boardgamenation.tracker.data.db.entity.RubricCriterionEntity
 import com.boardgamenation.tracker.data.db.entity.RubricEntity
 import com.boardgamenation.tracker.data.db.entity.SessionEntity
 import com.boardgamenation.tracker.data.db.entity.SessionExpansionEntity
+import com.boardgamenation.tracker.data.db.entity.SessionModeEntity
 import com.boardgamenation.tracker.data.db.entity.SessionPlayerEntity
 import com.boardgamenation.tracker.data.repository.DataMaintenanceRepository
 import com.boardgamenation.tracker.di.IoDispatcher
@@ -202,6 +203,7 @@ class CsvImporter @Inject constructor(
                 errors,
                 written
             )
+            importSessionModes(files[CsvSchema.SESSION_MODES], sessionIds, errors, written)
             val rubricIds = importRubrics(files[CsvSchema.RUBRICS], mode, errors, written)
             val criterionIds = importCriteria(
                 files[CsvSchema.RUBRIC_CRITERIA],
@@ -676,6 +678,51 @@ class CsvImporter @Inject constructor(
         }
         if (rows.isNotEmpty()) sessionDao.insertExpansions(rows)
         written[CsvSchema.SESSION_EXPANSIONS] = rows.size
+    }
+
+    /**
+     * The configurations each play was set up with.
+     *
+     * The backfill afterwards is what makes an older archive read correctly. An export
+     * taken before this file existed carries the whole answer in `sessions.mode` and
+     * nothing else, and a play stored with one configuration was played with exactly
+     * one -- which is what the migration decided for the databases already on disk, run
+     * here from the same statement so the two cannot decide it differently.
+     *
+     * It is guarded on the play having no rows, so an archive that does carry them is
+     * left exactly as it was imported.
+     */
+    private suspend fun importSessionModes(
+        text: String?,
+        sessionIds: Map<Long, Long>,
+        errors: MutableList<CsvError>,
+        written: MutableMap<String, Int>
+    ) {
+        val table = text?.let { CsvParser.parse(it) }
+        val rows = mutableListOf<SessionModeEntity>()
+        table?.rows?.forEach { row ->
+            try {
+                val sessionId = sessionIds[row.long("session_id")]
+                val mode = row.string("mode")?.trim()
+                if (sessionId == null || mode.isNullOrEmpty()) {
+                    errors += CsvError(
+                        row.lineNumber,
+                        "session_modes: unknown session or empty mode, skipped"
+                    )
+                    return@forEach
+                }
+                rows += SessionModeEntity(
+                    sessionId = sessionId,
+                    mode = mode,
+                    sortOrder = row.int("sort_order") ?: 0
+                )
+            } catch (e: Exception) {
+                errors += CsvError(row.lineNumber, "session_modes: ${e.message}")
+            }
+        }
+        if (rows.isNotEmpty()) sessionDao.insertModes(rows)
+        sessionDao.backfillModesFromSessions()
+        written[CsvSchema.SESSION_MODES] = rows.size
     }
 
     private suspend fun importRubrics(

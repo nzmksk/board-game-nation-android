@@ -134,6 +134,8 @@ class CsvExporter @Inject constructor(
         val sessionPlayers = sessionDao.getAllSessionPlayers().sortedBy { it.id }
         val sessionExpansions = sessionDao.getAllSessionExpansions()
             .sortedWith(compareBy({ it.sessionId }, { it.gameId }))
+        val sessionModes = sessionDao.getAllSessionModes()
+            .sortedWith(compareBy({ it.sessionId }, { it.sortOrder }, { it.mode }))
         val rubrics = rubricDao.getAllRubrics().sortedBy { it.id }
         val criteria = rubricDao.getAllCriteria().sortedBy { it.id }
         val ratings = rubricDao.getAllRatings().sortedBy { it.id }
@@ -225,6 +227,12 @@ class CsvExporter @Inject constructor(
             CsvSchema.SESSION_EXPANSIONS to Table(
                 CsvSchema.sessionExpansionColumns,
                 sessionExpansions.map { listOf(it.sessionId.toString(), it.gameId.toString()) }
+            ),
+            CsvSchema.SESSION_MODES to Table(
+                CsvSchema.sessionModeColumns,
+                sessionModes.map {
+                    listOf(it.sessionId.toString(), it.mode, it.sortOrder.toString())
+                }
             ),
             CsvSchema.RUBRICS to Table(
                 CsvSchema.rubricColumns,

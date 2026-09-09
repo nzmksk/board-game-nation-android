@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
 import com.boardgamenation.tracker.data.db.entity.GameCostEntity
+import com.boardgamenation.tracker.data.db.entity.SessionModeEntity
 import com.boardgamenation.tracker.data.db.query.GameQueryBuilder
 import com.boardgamenation.tracker.domain.model.CollectionFilter
 import com.boardgamenation.tracker.domain.model.GameStatus
@@ -640,6 +641,86 @@ class MigrationTest {
         assertEquals(0, db.gameDao().countCosts())
     }
 
+    // --- session modes ------------------------------------------------------------------
+
+    /**
+     * The whole configuration becomes one element of the set, uncut. "Cities & Knights"
+     * and "5 epidemics + mutation" are each one thing somebody typed, and any separator
+     * clever enough to split the second would quietly halve the first.
+     */
+    @Test
+    fun `a play keeps its configuration whole as a set of one`() = runTest {
+        seedAt(12) { db ->
+            insertGameV11(db, id = 1, title = "Catan", price = null)
+            insertSessionV12(db, id = 1, mode = "Cities & Knights")
+            insertSessionV12(db, id = 2, mode = "5 epidemics + mutation")
+        }
+
+        val db = openMigrated()
+
+        assertEquals(listOf("Cities & Knights"), db.sessionDao().getModes(1).map { it.mode })
+        assertEquals(
+            listOf("5 epidemics + mutation"),
+            db.sessionDao().getModes(2).map { it.mode }
+        )
+        // The column still reads exactly what it read before: every list and share card
+        // takes its one line from there.
+        assertEquals("Cities & Knights", db.sessionDao().getSession(1)!!.mode)
+    }
+
+    /** Nobody typed a configuration, so there is no set to invent for them. */
+    @Test
+    fun `a play with no configuration gains no rows`() = runTest {
+        seedAt(12) { db ->
+            insertGameV11(db, id = 1, title = "Azul", price = null)
+            insertSessionV12(db, id = 1, mode = null)
+            insertSessionV12(db, id = 2, mode = "   ")
+        }
+
+        val db = openMigrated()
+
+        assertEquals(0, db.sessionDao().countModes())
+    }
+
+    /** Deleting the play takes its configuration with it rather than orphaning it. */
+    @Test
+    fun `modes are deleted with the session they belong to`() = runTest {
+        seedAt(12) { db ->
+            insertGameV11(db, id = 1, title = "Heat", price = null)
+            insertSessionV12(db, id = 1, mode = "Championship")
+        }
+
+        val db = openMigrated()
+        db.sessionDao().deleteSession(1)
+
+        assertEquals(0, db.sessionDao().countModes())
+    }
+
+    /**
+     * A play can be set up several ways at once, which is the entire point of the table.
+     * Written after the upgrade rather than by it: the migration has one string to work
+     * from and refuses to guess how many answers were in it.
+     */
+    @Test
+    fun `several modes can be recorded against one play after the upgrade`() = runTest {
+        seedAt(12) { db ->
+            insertGameV11(db, id = 1, title = "Heat", price = null)
+            insertSessionV12(db, id = 1, mode = null)
+        }
+
+        val db = openMigrated()
+        db.sessionDao().insertModes(
+            listOf("Championship", "Legends", "Weather").mapIndexed { index, mode ->
+                SessionModeEntity(sessionId = 1, mode = mode, sortOrder = index)
+            }
+        )
+
+        assertEquals(
+            listOf("Championship", "Legends", "Weather"),
+            db.sessionDao().getModes(1).map { it.mode }
+        )
+    }
+
     // --- integrity ------------------------------------------------------------------
 
     @Test
@@ -783,6 +864,14 @@ class MigrationTest {
         """.trimIndent()
     )
 
+    private fun insertSessionV12(db: SupportSQLiteDatabase, id: Long, mode: String?, gameId: Long = 1) = db.execSQL(
+        """
+        INSERT INTO sessions (id, game_id, played_on, duration_minutes, player_count, mode,
+                              created_at, updated_at)
+        VALUES ($id, $gameId, '2026-01-05', 45, 2, ${mode?.let { "'$it'" } ?: "NULL"}, 0, 0)
+        """.trimIndent()
+    )
+
     private fun columnsOf(db: AppDatabase, table: String): List<String> =
         db.openHelper.writableDatabase.query("PRAGMA table_info($table)").use { cursor ->
             buildList {
@@ -804,6 +893,18 @@ class MigrationTest {
             val indices = entity.optJSONArray("indices") ?: continue
             for (j in 0 until indices.length()) {
                 statements += indices.getJSONObject(j).getString("createSql").withTable(table)
+            }
+        }
+
+        // Views too, or a database seeded at a version that has one is not that version:
+        // Room checks the views it finds against the ones it expects on the way in, and a
+        // seed missing one fails the migration that never touched it.
+        val views = database.optJSONArray("views")
+        if (views != null) {
+            for (i in 0 until views.length()) {
+                val view = views.getJSONObject(i)
+                statements += view.getString("createSql")
+                    .replace("\${VIEW_NAME}", view.getString("viewName"))
             }
         }
         return statements

@@ -6,8 +6,10 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import com.boardgamenation.tracker.data.db.entity.BACKFILL_SESSION_MODES_SQL
 import com.boardgamenation.tracker.data.db.entity.SessionEntity
 import com.boardgamenation.tracker.data.db.entity.SessionExpansionEntity
+import com.boardgamenation.tracker.data.db.entity.SessionModeEntity
 import com.boardgamenation.tracker.data.db.entity.SessionPlayerEntity
 import com.boardgamenation.tracker.data.db.projection.SessionListItem
 import com.boardgamenation.tracker.data.db.projection.SessionParticipant
@@ -164,6 +166,13 @@ interface SessionDao {
     @Query("SELECT * FROM session_expansions")
     suspend fun getAllSessionExpansions(): List<SessionExpansionEntity>
 
+    /** The configurations one play was set up with, in the order they were named. */
+    @Query("SELECT * FROM session_modes WHERE session_id = :sessionId ORDER BY sort_order, mode")
+    suspend fun getModes(sessionId: Long): List<SessionModeEntity>
+
+    @Query("SELECT * FROM session_modes")
+    suspend fun getAllSessionModes(): List<SessionModeEntity>
+
     /** Prefills the duration field with what this game actually takes at this table. */
     @Query(
         """
@@ -194,13 +203,20 @@ interface SessionDao {
     )
     fun observeEndReasonsFor(gameId: Long, limit: Int = 6): Flow<List<String>>
 
-    /** Configurations this game has already been played at, newest first. */
+    /**
+     * Configurations this game has already been played at, newest first.
+     *
+     * Read one at a time off `session_modes` rather than as the line they were shown on,
+     * so a game played once with Championship, Legends and Weather offers three chips
+     * back and not a single one that only fits an evening exactly like that one.
+     */
     @Query(
         """
-        SELECT mode FROM sessions
-        WHERE game_id = :gameId AND is_draft = 0 AND mode IS NOT NULL AND trim(mode) <> ''
-        GROUP BY mode COLLATE NOCASE
-        ORDER BY MAX(played_on) DESC
+        SELECT m.mode FROM session_modes m
+        JOIN sessions s ON s.id = m.session_id
+        WHERE s.game_id = :gameId AND s.is_draft = 0
+        GROUP BY m.mode COLLATE NOCASE
+        ORDER BY MAX(s.played_on) DESC
         LIMIT :limit
         """
     )
@@ -286,12 +302,31 @@ interface SessionDao {
     @Query("DELETE FROM session_expansions WHERE session_id = :sessionId")
     suspend fun clearExpansions(sessionId: Long)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertModes(rows: List<SessionModeEntity>)
+
+    @Query("DELETE FROM session_modes WHERE session_id = :sessionId")
+    suspend fun clearModes(sessionId: Long)
+
+    /**
+     * Hands a play that has a configuration but no rows for it the one-element set it
+     * always meant. See [BACKFILL_SESSION_MODES_SQL]: this is the import's half of what
+     * the migration did once, for an archive exported before the table existed.
+     */
+    @Query(BACKFILL_SESSION_MODES_SQL)
+    suspend fun backfillModesFromSessions()
+
     /**
      * Writes a session and everything hanging off it as one unit, so a half-saved play
      * can never be observed.
      */
     @Transaction
-    suspend fun saveComplete(session: SessionEntity, participants: List<SessionPlayerEntity>, expansionIds: List<Long>): Long {
+    suspend fun saveComplete(
+        session: SessionEntity,
+        participants: List<SessionPlayerEntity>,
+        expansionIds: List<Long>,
+        modes: List<String>
+    ): Long {
         val id = if (session.id == 0L) {
             insertSession(session)
         } else {
@@ -302,14 +337,21 @@ interface SessionDao {
         insertParticipants(participants.map { it.copy(id = 0, sessionId = id) })
         clearExpansions(id)
         insertExpansions(expansionIds.map { SessionExpansionEntity(sessionId = id, gameId = it) })
+        clearModes(id)
+        insertModes(
+            modes.mapIndexed { index, mode ->
+                SessionModeEntity(sessionId = id, mode = mode, sortOrder = index)
+            }
+        )
         return id
     }
 
     /**
      * Writes a draft and the players it currently knows about as one unit.
      *
-     * Separate from [saveComplete] because the expansions belong to the session form,
-     * not to the clock: the timer must not clear a choice it knows nothing about.
+     * Separate from [saveComplete] because the expansions and the configuration belong
+     * to the session form, not to the clock: the timer must not clear a choice it knows
+     * nothing about.
      */
     @Transaction
     suspend fun saveDraft(session: SessionEntity, participants: List<SessionPlayerEntity>): Long {
@@ -332,6 +374,9 @@ interface SessionDao {
 
     @Query("SELECT COUNT(*) FROM session_expansions")
     suspend fun countExpansions(): Int
+
+    @Query("SELECT COUNT(*) FROM session_modes")
+    suspend fun countModes(): Int
 
     @Query("DELETE FROM sessions")
     suspend fun deleteAll()

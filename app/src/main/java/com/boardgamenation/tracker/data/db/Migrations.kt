@@ -1,6 +1,7 @@
 package com.boardgamenation.tracker.data.db
 
 import androidx.room.migration.Migration
+import com.boardgamenation.tracker.data.db.entity.BACKFILL_SESSION_MODES_SQL
 import com.boardgamenation.tracker.data.db.entity.GAME_COSTING_SQL
 import com.boardgamenation.tracker.data.db.entity.GameCostingView
 
@@ -563,6 +564,41 @@ object Migrations {
     }
 
     /**
+     * Lets a play carry more than one configuration, because most of them always did.
+     *
+     * `sessions.mode` asked for one line of free text and got a combination typed into
+     * it: "Championship + Legends + Weather" is three modules, not a mode. Written that
+     * way the answer can be shown and nothing else -- which plays used Weather is a
+     * question the string cannot be asked, and the chips the form offered back were
+     * whole evenings rather than the parts they were assembled from.
+     *
+     * Nothing is lost and nothing is guessed. A play stored with one configuration is
+     * given exactly that configuration, whole, as a one-element set; the string is never
+     * split on anything, because the separator that would split "Championship + Legends"
+     * correctly would cut "Cities & Knights" in half somewhere else.
+     *
+     * The column stays, and stays correct. Every list, share card and statistic reads it
+     * for the one line they show, and it is written from the set on every save the way
+     * `is_incomplete` is written from the end condition -- derived from it, never set
+     * beside it.
+     */
+    private val MIGRATION_12_13 = Migration(12, 13) { db ->
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `session_modes` (
+                `session_id` INTEGER NOT NULL,
+                `mode` TEXT NOT NULL,
+                `sort_order` INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(`session_id`, `mode`),
+                FOREIGN KEY(`session_id`) REFERENCES `sessions`(`id`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL(BACKFILL_SESSION_MODES_SQL)
+    }
+
+    /**
      * Ordered oldest to newest. Room composes them, so a device three versions behind
      * walks the chain rather than needing a 1-to-4 migration of its own.
      */
@@ -577,6 +613,7 @@ object Migrations {
         MIGRATION_8_9,
         MIGRATION_9_10,
         MIGRATION_10_11,
-        MIGRATION_11_12
+        MIGRATION_11_12,
+        MIGRATION_12_13
     )
 }

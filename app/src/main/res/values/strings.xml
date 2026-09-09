@@ -234,7 +234,7 @@
     <string name="session_edit_coop_win">We won</string>
     <string name="session_edit_coop_loss">We lost</string>
     <string name="session_edit_mode">Mode or configuration</string>
-    <string name="session_edit_mode_hint">e.g. 5 epidemics + mutation, Level 12, Seafarers</string>
+    <string name="session_edit_mode_hint">e.g. Championship, Legends, Weather</string>
     <string name="session_edit_mode_previous">Previously played</string>
     <string name="session_edit_team">Team</string>
     <string name="session_edit_winning_team">Which side won</string>

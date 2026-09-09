@@ -23,7 +23,7 @@ class ShareCardTest {
         scoringMode: ScoringMode = ScoringMode.RANKED_SCORES,
         coopOutcome: CoopOutcome? = null,
         winningTeam: String? = null,
-        mode: String? = null,
+        modes: List<String> = emptyList(),
         endReason: String? = null,
         participants: List<ParticipantForm>
     ) = SessionForm(
@@ -34,7 +34,7 @@ class ShareCardTest {
         scoringMode = scoringMode,
         coopOutcome = coopOutcome,
         winningTeam = winningTeam,
-        mode = mode,
+        modes = modes,
         endReason = endReason,
         participants = participants
     )
@@ -279,7 +279,7 @@ class ShareCardTest {
     fun `blank free text is dropped rather than printed as an empty line`() {
         val card = ShareCard.of(
             form(
-                mode = "   ",
+                modes = listOf("   "),
                 endReason = "",
                 participants = listOf(player(1, "Hafiz", faction = " ", team = ""))
             )
