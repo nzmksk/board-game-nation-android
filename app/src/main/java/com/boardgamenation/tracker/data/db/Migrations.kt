@@ -1,6 +1,8 @@
 package com.boardgamenation.tracker.data.db
 
 import androidx.room.migration.Migration
+import com.boardgamenation.tracker.data.db.entity.GAME_COSTING_SQL
+import com.boardgamenation.tracker.data.db.entity.GameCostingView
 
 /**
  * Every schema change ships a migration here and a test in `MigrationTest` that opens a
@@ -525,6 +527,42 @@ object Migrations {
     }
 
     /**
+     * Adds the accessory costs a game accumulates after the box is paid for, and the
+     * view that lets every costing query stop pretending `price` is the whole bill.
+     *
+     * Purely additive. No existing row is touched, and a collection that never records
+     * an accessory sums to exactly the totals it summed to before: the view falls back
+     * to `price` alone when a game has no cost rows, and still reports null -- unpriced,
+     * excluded -- for a game that has neither.
+     *
+     * The view has to be created here. Room creates views for a fresh database only; an
+     * upgraded one gets whatever the migration leaves behind, and the schema check that
+     * runs immediately afterwards compares the text of the view it found against the
+     * text it expects. Both sides read [GAME_COSTING_SQL], so there is no second copy to
+     * keep in step.
+     */
+    private val MIGRATION_11_12 = Migration(11, 12) { db ->
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `game_costs` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `game_id` INTEGER NOT NULL,
+                `label` TEXT NOT NULL,
+                `amount` REAL NOT NULL,
+                `sort_order` INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(`game_id`) REFERENCES `games`(`id`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_game_costs_game_id` ON `game_costs` (`game_id`)"
+        )
+        db.execSQL("DROP VIEW IF EXISTS `${GameCostingView.NAME}`")
+        db.execSQL("CREATE VIEW `${GameCostingView.NAME}` AS $GAME_COSTING_SQL")
+    }
+
+    /**
      * Ordered oldest to newest. Room composes them, so a device three versions behind
      * walks the chain rather than needing a 1-to-4 migration of its own.
      */
@@ -538,6 +576,7 @@ object Migrations {
         MIGRATION_7_8,
         MIGRATION_8_9,
         MIGRATION_9_10,
-        MIGRATION_10_11
+        MIGRATION_10_11,
+        MIGRATION_11_12
     )
 }
