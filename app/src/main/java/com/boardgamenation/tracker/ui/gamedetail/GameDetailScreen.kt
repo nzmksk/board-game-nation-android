@@ -185,6 +185,7 @@ fun GameDetailScreen(
             item {
                 MetadataSection(
                     game = game,
+                    state = state,
                     designers = state.tags
                         .filter { it.kind == TagKind.DESIGNER }
                         .map { it.name }
@@ -551,8 +552,16 @@ private fun RatingSection(state: GameDetailUiState, onRate: () -> Unit) {
     }
 }
 
+/** Every amount on this screen is in the game's own currency; none of them convert. */
 @Composable
-private fun MetadataSection(game: GameEntity, designers: List<String>) {
+private fun money(game: GameEntity, amount: Double): String = stringResource(
+    R.string.unit_money,
+    game.currency,
+    String.format(currentLocale(), "%.2f", amount)
+)
+
+@Composable
+private fun MetadataSection(game: GameEntity, state: GameDetailUiState, designers: List<String>) {
     Column {
         game.weight?.let {
             KeyValueRow(
@@ -570,15 +579,16 @@ private fun MetadataSection(game: GameEntity, designers: List<String>) {
             KeyValueRow(stringResource(R.string.game_detail_designers), it.joinToString(", "))
         }
         game.publisher?.let { KeyValueRow(stringResource(R.string.game_detail_publisher), it) }
-        game.price?.let {
-            KeyValueRow(
-                stringResource(R.string.game_edit_price),
-                stringResource(
-                    R.string.unit_money,
-                    game.currency,
-                    String.format(currentLocale(), "%.2f", it)
-                )
-            )
+        game.price?.let { KeyValueRow(stringResource(R.string.game_edit_price), money(game, it)) }
+        state.costs.forEach { cost ->
+            KeyValueRow(cost.label, money(game, cost.amount))
+        }
+        // Only worth a line once there is something for it to add up: with no accessory
+        // rows between them, a total would just repeat the price above it.
+        if (state.costs.isNotEmpty()) {
+            state.totalCost?.let {
+                KeyValueRow(stringResource(R.string.game_detail_total_cost), money(game, it))
+            }
         }
         KeyValueRow(stringResource(R.string.game_edit_date_added), game.dateAdded)
         game.purchaseNote?.let {

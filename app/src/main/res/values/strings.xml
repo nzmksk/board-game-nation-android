@@ -119,7 +119,6 @@
     <string name="game_detail_tags">Tags</string>
     <string name="game_detail_notes">Notes</string>
     <string name="game_detail_purchase">Purchase</string>
-    <string name="game_detail_accessories">Accessories</string>
     <string name="game_detail_total_cost">Total cost</string>
     <string name="game_detail_log_play">Log a play</string>
     <string name="game_detail_start_timer">Start timer</string>
