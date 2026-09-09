@@ -54,7 +54,15 @@ data class ShareStanding(
     val isWinner: Boolean,
 
     /** Whether this play was their first of this game. */
-    val isNewPlayer: Boolean
+    val isNewPlayer: Boolean,
+
+    /**
+     * Whether this play beat everything they had scored at this game before.
+     *
+     * Never true at the same time as [isNewPlayer]: a debut has no earlier score to
+     * beat, so it sets no record.
+     */
+    val isPersonalBest: Boolean = false
 ) {
     /** `12` rather than `12.0`, and `7.5` kept as `7.5`. */
     val scoreText: String? get() = score?.let(::formatScore)
@@ -137,14 +145,15 @@ data class ShareCard(
          * screen already holds, and placements and winners on it have been through the
          * scoring rules, so the card ranks exactly the way the app does.
          */
-        fun of(form: SessionForm): ShareCard {
+        fun of(form: SessionForm, personalBests: Set<Long> = emptySet()): ShareCard {
             val result = resultOf(form)
             return ShareCard(
                 gameTitle = form.gameTitle,
                 playedOn = form.playedOn,
                 durationMinutes = form.durationMinutes,
                 result = result,
-                standings = order(form.participants, result).map { it.toStanding(result) },
+                standings = order(form.participants, result)
+                    .map { it.toStanding(result, it.playerId in personalBests) },
                 winningTeam = form.winningTeam?.trim()?.takeIf(String::isNotEmpty),
                 mode = form.mode?.trim()?.takeIf(String::isNotEmpty),
                 endReason = form.endReason?.trim()?.takeIf(String::isNotEmpty),
@@ -213,7 +222,7 @@ data class ShareCard(
                 .flatMap { it.value }
         }
 
-        private fun ParticipantForm.toStanding(result: ShareResult) = ShareStanding(
+        private fun ParticipantForm.toStanding(result: ShareResult, isPersonalBest: Boolean) = ShareStanding(
             // A side winning says nothing about the order within it, and a co-op has no
             // order at all, so neither carries a rank onto the card.
             rank = placement.takeIf { result == ShareResult.RANKED },
@@ -222,7 +231,8 @@ data class ShareCard(
             team = team?.trim()?.takeIf(String::isNotEmpty),
             score = score,
             isWinner = isWinner,
-            isNewPlayer = isNewPlayer
+            isNewPlayer = isNewPlayer,
+            isPersonalBest = isPersonalBest
         )
     }
 }

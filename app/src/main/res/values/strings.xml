@@ -276,6 +276,10 @@
     <!-- Marks a player whose first play of this game it was. Kept short: it is drawn as
          a tag beside the name, on a row that also has to hold a score. -->
     <string name="share_card_first_timer">First play</string>
+    <!-- Marks a player whose score at this play beat their own record at the game. Kept
+         as short as the first-play tag, for the same reason: it is drawn beside a name
+         on a row that also has to hold a score. -->
+    <string name="share_card_personal_best">Personal best</string>
     <!-- The watermark along the bottom of a shared card. %1$s is the app name, which is
          a proper noun and is not translated. -->
     <string name="share_card_watermark">Powered by %1$s</string>

@@ -309,17 +309,24 @@ class ShareCardRenderer @Inject constructor(@param:ApplicationContext private va
         // rather than the text keeping its size and colliding with the row's edges.
         val namePaint = text(size = (height * 0.32f).coerceIn(34f, 48f), color = INK, bold = true)
 
-        // Somebody's first play of the game gets a tag next to their name. It is
-        // measured before the name is drawn rather than squeezed in afterwards, so a
-        // long name is ellipsised down to the room actually left instead of the tag
-        // landing on top of it or running under the score.
-        val tag = context.getString(R.string.share_card_first_timer)
-            .takeIf { standing.isNewPlayer }
+        // What the row has to say about the player beyond the result gets a tag next to
+        // their name. They are measured before the name is drawn rather than squeezed in
+        // afterwards, so a long name is ellipsised down to the room actually left
+        // instead of a tag landing on top of it or running under the score.
+        //
+        // The two never appear together on real data -- a first play has no earlier
+        // score to beat -- but they are drawn as a list rather than as one slot, so a
+        // row that somehow carried both would show both rather than silently lose one.
+        val tags = listOfNotNull(
+            R.string.share_card_first_timer.takeIf { standing.isNewPlayer },
+            R.string.share_card_personal_best.takeIf { standing.isPersonalBest }
+        ).map(context::getString)
         val tagPaint = text(size = (height * 0.2f).coerceIn(22f, 30f), color = INK, bold = true)
             .apply { letterSpacing = 0.08f }
-        // A gap either side: one to part the tag from the name, and one so a name long
-        // enough to fill the row cannot push the tag up against the score.
-        val tagWidth = tag?.let { tagPaint.measureText(it) + TAG_PADDING * 2 + TAG_GAP * 2 } ?: 0f
+        // A gap either side of each: one to part it from what precedes it, and one so a
+        // name long enough to fill the row cannot push the last tag up against the score.
+        val tagWidth = tags.sumOf { (tagPaint.measureText(it) + TAG_PADDING * 2 + TAG_GAP * 2).toDouble() }
+            .toFloat()
 
         val nameWidth = scoreRight - scoreWidth - nameX - tagWidth
         val name = ellipsised(standing.name, namePaint, nameWidth)
@@ -339,16 +346,13 @@ class ShareCardRenderer @Inject constructor(@param:ApplicationContext private va
             )
         }
 
-        tag?.let {
-            drawTag(
-                canvas = canvas,
-                label = it,
-                paint = tagPaint,
-                x = nameX + namePaint.measureText(name) + TAG_GAP,
-                // Centred on the name, not on the row: a row-centred tag would drift
-                // away from the word it belongs to as soon as a faction appeared below.
-                centreY = nameBaseline + (namePaint.descent() + namePaint.ascent()) / 2
-            )
+        // Centred on the name, not on the row: a row-centred tag would drift away from
+        // the word it belongs to as soon as a faction appeared below.
+        val tagCentreY = nameBaseline + (namePaint.descent() + namePaint.ascent()) / 2
+        var tagX = nameX + namePaint.measureText(name) + TAG_GAP
+        tags.forEach {
+            drawTag(canvas = canvas, label = it, paint = tagPaint, x = tagX, centreY = tagCentreY)
+            tagX += tagPaint.measureText(it) + TAG_PADDING * 2 + TAG_GAP
         }
     }
 
