@@ -52,8 +52,6 @@ class SessionRepository @Inject constructor(
         playerId = filter.playerId
     )
 
-    fun observeLatestDraft(): Flow<SessionEntity?> = sessionDao.observeLatestDraft()
-
     /** Sudden-death reasons this game has already been given, newest first. */
     fun observeEndReasonsFor(gameId: Long): Flow<List<String>> = sessionDao.observeEndReasonsFor(gameId)
 

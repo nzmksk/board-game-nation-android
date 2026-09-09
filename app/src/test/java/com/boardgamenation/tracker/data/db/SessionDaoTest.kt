@@ -461,7 +461,6 @@ class SessionDaoTest {
         assertEquals(0, db.sessionDao().count())
         assertEquals(1, repository.getDrafts().size)
         assertTrue(repository.observeSessions(SessionFilter()).first().isEmpty())
-        assertNotNull(repository.observeLatestDraft().first())
     }
 
     @Test

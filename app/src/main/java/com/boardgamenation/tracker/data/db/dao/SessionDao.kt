@@ -260,9 +260,6 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE is_draft = 1 ORDER BY created_at DESC")
     suspend fun getDrafts(): List<SessionEntity>
 
-    @Query("SELECT * FROM sessions WHERE is_draft = 1 ORDER BY created_at DESC LIMIT 1")
-    fun observeLatestDraft(): Flow<SessionEntity?>
-
     @Query("DELETE FROM sessions WHERE is_draft = 1")
     suspend fun deleteDrafts()
 

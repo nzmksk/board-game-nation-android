@@ -14,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,7 +37,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.boardgamenation.tracker.R
 import com.boardgamenation.tracker.core.time.DateUtils
-import com.boardgamenation.tracker.data.db.entity.SessionEntity
 import com.boardgamenation.tracker.data.db.projection.AchievementWithUnlock
 import com.boardgamenation.tracker.data.db.projection.SessionListItem
 import com.boardgamenation.tracker.data.prefs.SettingsRepository
@@ -66,15 +64,13 @@ data class DashboardState(
     val recentAchievements: List<AchievementWithUnlock> = emptyList(),
     val gamesOwned: Int = 0,
     val totalPlays: Int = 0,
-    val draft: SessionEntity? = null,
-    val draftGameTitle: String = "",
     val overdueLoans: Int = 0,
     val lendingThresholdDays: Int = 30
 )
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val sessionRepository: SessionRepository,
+    sessionRepository: SessionRepository,
     private val gameRepository: GameRepository,
     statsRepository: StatsRepository,
     achievementRepository: AchievementRepository,
@@ -91,19 +87,14 @@ class DashboardViewModel @Inject constructor(
             statsRepository.ownedBaseGames(),
             statsRepository.totalPlays()
         ) { owned, plays -> owned to plays },
-        combine(
-            sessionRepository.observeLatestDraft(),
-            loans
-        ) { draft, loanInfo -> draft to loanInfo }
-    ) { recent, streak, achievements, (owned, plays), (draft, loanInfo) ->
+        loans
+    ) { recent, streak, achievements, (owned, plays), loanInfo ->
         DashboardState(
             recent = recent,
             streak = streak,
             recentAchievements = achievements,
             gamesOwned = owned,
             totalPlays = plays,
-            draft = draft,
-            draftGameTitle = draft?.let { gameRepository.getGame(it.gameId)?.title }.orEmpty(),
             overdueLoans = loanInfo.first,
             lendingThresholdDays = loanInfo.second
         )
@@ -117,11 +108,6 @@ class DashboardViewModel @Inject constructor(
             }
         }
     }
-
-    fun discardDraft() {
-        val id = state.value.draft?.id ?: return
-        viewModelScope.launch { sessionRepository.discardDraft(id) }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -131,7 +117,6 @@ fun DashboardScreen(
     onOpenSession: (Long) -> Unit,
     onOpenSessions: () -> Unit,
     onOpenAchievements: () -> Unit,
-    onResumeDraft: (Long) -> Unit,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -143,43 +128,6 @@ fun DashboardScreen(
             modifier = Modifier.padding(padding),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-            // A draft left behind by a killed process is the first thing offered, because
-            // an evening's data is the most valuable thing the app could lose.
-            state.draft?.let { draft ->
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                        ),
-                        modifier = Modifier.fillMaxWidth().padding(16.dp)
-                    ) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text(
-                                text = stringResource(R.string.dashboard_draft_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
-                            )
-                            Text(
-                                text = stringResource(
-                                    R.string.dashboard_draft_body,
-                                    state.draftGameTitle
-                                ),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = { onResumeDraft(draft.id) }) {
-                                    Text(stringResource(R.string.dashboard_draft_save))
-                                }
-                                TextButton(onClick = viewModel::discardDraft) {
-                                    Text(stringResource(R.string.dashboard_draft_discard))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
             item {
                 Row(
                     Modifier.fillMaxWidth().padding(16.dp),
