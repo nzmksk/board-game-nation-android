@@ -156,7 +156,11 @@ fun GameDetailScreen(
 
             item { StatsRow(state) }
 
-            if (state.tags.isNotEmpty()) {
+            // Designers are left out: they get their own line further down, and a game
+            // with five of them would otherwise open with a row of names rather than
+            // the mechanics and categories the section is for.
+            val chips = state.tags.filter { it.kind.shownAsTag }
+            if (chips.isNotEmpty()) {
                 item { SectionHeader(stringResource(R.string.game_detail_tags)) }
                 item {
                     Row(
@@ -166,7 +170,7 @@ fun GameDetailScreen(
                             .padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        state.tags.forEach { tag ->
+                        chips.forEach { tag ->
                             AssistChip(onClick = {}, label = { Text(tag.name) })
                         }
                     }
