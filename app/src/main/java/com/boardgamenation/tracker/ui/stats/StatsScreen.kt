@@ -31,13 +31,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.boardgamenation.tracker.R
 import com.boardgamenation.tracker.core.time.DurationFormat
 import com.boardgamenation.tracker.data.db.projection.CostPerPlayRow
+import com.boardgamenation.tracker.data.db.projection.HeadToHeadRow
 import com.boardgamenation.tracker.data.db.projection.LabelledValue
 import com.boardgamenation.tracker.ui.components.BottomBarGap
 import com.boardgamenation.tracker.ui.components.DivergingBarChart
@@ -443,18 +448,8 @@ private fun PlayersTab(viewModel: StatsViewModel) {
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = stringResource(
-                        R.string.stats_head_to_head_record,
-                        row.selfWins,
-                        row.opponentWins
-                    ),
+                    text = headToHeadRecord(row),
                     style = MaterialTheme.typography.labelLarge
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.stats_shared_plays, row.sharedPlays),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -487,6 +482,34 @@ private fun PlayersTab(viewModel: StatsViewModel) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+    }
+}
+
+/**
+ * A head-to-head record as three outcomes -- 3W / 1L / 3D -- rather than a scoreline.
+ *
+ * A win and a loss are not opposite ends of one number here. A pair can share a play
+ * that neither of them won, and thanks to ties they can share one that both of them did,
+ * so "3 - 1" was quietly hiding whatever the rest of the plays were.
+ *
+ * The letters carry the meaning and the colours only reinforce it, which is the whole
+ * reason a reader who cannot separate the green from the red still gets the record.
+ */
+@Composable
+private fun headToHeadRecord(row: HeadToHeadRow): AnnotatedString {
+    val chartColors = LocalChartColors.current
+    val outcomes = listOf(
+        stringResource(R.string.stats_head_to_head_wins, row.selfWins) to chartColors.good,
+        stringResource(R.string.stats_head_to_head_losses, row.opponentWins) to chartColors.critical,
+        stringResource(R.string.stats_head_to_head_draws, row.draws) to
+            MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    val separator = stringResource(R.string.stats_head_to_head_separator)
+    return buildAnnotatedString {
+        outcomes.forEachIndexed { index, (text, color) ->
+            if (index > 0) append(separator)
+            withStyle(SpanStyle(color = color)) { append(text) }
         }
     }
 }
