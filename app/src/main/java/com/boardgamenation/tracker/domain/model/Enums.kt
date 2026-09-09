@@ -5,6 +5,17 @@ enum class GameStatus {
     OWNED,
     WISHLIST,
     PREORDERED,
+
+    /**
+     * Played, but never owned: the copy belonged to a friend, a club or a cafe.
+     *
+     * It earns a place on the shelf because the plays are real. Sessions are logged
+     * against a game, so a night spent on somebody else's copy can only be recorded by
+     * giving that game a row -- and until now the only rows on offer claimed the copy
+     * was bought, wanted, or gone. This one says the game was played and the shelf was
+     * never involved, which is why it stays out of [countsTowardCollection].
+     */
+    PLAYED_NOT_OWNED,
     SOLD,
     LENT_OUT;
 

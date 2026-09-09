@@ -688,6 +688,7 @@ internal fun GameStatus.labelRes(): Int = when (this) {
     GameStatus.OWNED -> R.string.status_owned
     GameStatus.WISHLIST -> R.string.status_wishlist
     GameStatus.PREORDERED -> R.string.status_preordered
+    GameStatus.PLAYED_NOT_OWNED -> R.string.status_played_not_owned
     GameStatus.SOLD -> R.string.status_sold
     GameStatus.LENT_OUT -> R.string.status_lent_out
 }
