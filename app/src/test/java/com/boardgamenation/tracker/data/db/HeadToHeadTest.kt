@@ -18,9 +18,10 @@ import org.robolectric.RobolectricTestRunner
  * first, and among equal win counts the one who has won back the least. How many plays
  * the two have shared does not enter into it.
  *
- * Also that a play the two both won is a draw and only a draw. Ties for first are a real
- * outcome in this app, and the counting has to keep them out of both the win and the loss
- * column rather than putting them in both.
+ * Also which of the three outcomes a play falls into. A win is a sole win; everything
+ * else the two of them finished together is a draw, whether they tied for the victory or
+ * a third player walked off with it. A play nobody finished is not an outcome at all and
+ * does not appear in the record.
  */
 @RunWith(RobolectricTestRunner::class)
 class HeadToHeadTest {
@@ -45,18 +46,17 @@ class HeadToHeadTest {
 
     /**
      * Plays out a record between the owner and one opponent. A [draws] play is one both
-     * of them won, which is what a tie for first looks like in the data. [unfinished]
-     * plays are shared but have no winner, which is how a pair can share more plays than
-     * their record accounts for.
+     * of them won, which is what a tie for first looks like in the data. An [abandoned]
+     * play is one they started and never finished.
      */
     private suspend fun record(
         opponentId: Long,
         wins: Int,
         losses: Int,
         draws: Int = 0,
-        unfinished: Int = 0
+        abandoned: Int = 0
     ) {
-        repeat(wins + losses + draws + unfinished) { index ->
+        repeat(wins + losses + draws + abandoned) { index ->
             val incomplete = index >= wins + losses + draws
             val sessionId = db.sessionDao().insertSession(
                 DatabaseTestFixture.session(
@@ -83,6 +83,23 @@ class HeadToHeadTest {
             )
         }
     }
+
+    /** A finished play the pair shared and a third player took, leaving both of them behind. */
+    private suspend fun playWonByAThirdPlayer(opponentId: Long, winnerId: Long) {
+        val sessionId = db.sessionDao().insertSession(
+            DatabaseTestFixture.session(gameId, playedOn = "2026-02-01", playerCount = 3)
+        )
+        db.sessionDao().insertParticipants(
+            listOf(
+                DatabaseTestFixture.participant(sessionId, me, isWinner = false),
+                DatabaseTestFixture.participant(sessionId, opponentId, isWinner = false),
+                DatabaseTestFixture.participant(sessionId, winnerId, isWinner = true)
+            )
+        )
+    }
+
+    private suspend fun recordAgainst(name: String) =
+        db.statsDao().observeHeadToHead().first().single { it.opponentName == name }
 
     private suspend fun names() = db.statsDao().observeHeadToHead().first().map { it.opponentName }
 
@@ -126,26 +143,60 @@ class HeadToHeadTest {
 
     @Test
     fun `an equal rate is broken by the longer rivalry, not by the list order`() = runTest {
-        // Both beat the user half the time. Constant has done it over twelve plays rather
-        // than six, but wins fewer, so the ranking puts them second -- taking the first
-        // qualifying row would answer Occasional.
-        record(opponent("Occasional"), wins = 3, losses = 3)
-        record(opponent("Constant"), wins = 1, losses = 6, unfinished = 5)
+        // Both beat the user a third of the time. Constant has done it over eighteen plays
+        // rather than nine, but wins fewer, so the ranking puts them second -- taking the
+        // first qualifying row would answer Occasional.
+        record(opponent("Occasional"), wins = 6, losses = 3)
+        record(opponent("Constant"), wins = 4, losses = 6, draws = 8)
 
         assertEquals(listOf("Occasional", "Constant"), names())
         assertEquals("Constant", repository.nemesis().first()?.opponentName)
     }
 
     @Test
-    fun `a play both of them won is a draw and nothing else`() = runTest {
-        val rival = opponent("Nadia")
-        record(rival, wins = 3, losses = 1, draws = 3)
+    fun `a victory the two of them tied for is a draw and nothing else`() = runTest {
+        record(opponent("Nadia"), wins = 3, losses = 1, draws = 3)
 
-        val row = db.statsDao().observeHeadToHead().first().single()
+        val row = recordAgainst("Nadia")
         assertEquals(3, row.selfWins)
         assertEquals(1, row.opponentWins)
         assertEquals(3, row.draws)
         assertEquals(7, row.sharedPlays)
+    }
+
+    @Test
+    fun `a play a third player won leaves the pair drawn with each other`() = runTest {
+        val rival = opponent("Nadia")
+        record(rival, wins = 1, losses = 1)
+        playWonByAThirdPlayer(rival, winnerId = opponent("Wei"))
+
+        val row = recordAgainst("Nadia")
+        assertEquals(1, row.selfWins)
+        assertEquals(1, row.opponentWins)
+        assertEquals(1, row.draws)
+        assertEquals(3, row.sharedPlays)
+    }
+
+    @Test
+    fun `an abandoned play settles nothing and stays out of the record`() = runTest {
+        record(opponent("Nadia"), wins = 2, losses = 1, abandoned = 4)
+
+        val row = recordAgainst("Nadia")
+        assertEquals(2, row.selfWins)
+        assertEquals(1, row.opponentWins)
+        assertEquals(0, row.draws)
+        // Not 7: the four they walked away from are not a shared play either.
+        assertEquals(3, row.sharedPlays)
+    }
+
+    @Test
+    fun `the three outcomes account for every play the pair shared`() = runTest {
+        val rival = opponent("Nadia")
+        record(rival, wins = 4, losses = 3, draws = 2, abandoned = 5)
+        playWonByAThirdPlayer(rival, winnerId = opponent("Wei"))
+
+        val row = recordAgainst("Nadia")
+        assertEquals(row.sharedPlays, row.selfWins + row.opponentWins + row.draws)
     }
 
     @Test

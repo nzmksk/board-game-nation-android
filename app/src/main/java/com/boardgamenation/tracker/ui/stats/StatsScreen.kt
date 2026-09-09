@@ -489,9 +489,9 @@ private fun PlayersTab(viewModel: StatsViewModel) {
 /**
  * A head-to-head record as three outcomes -- 3W / 1L / 3D -- rather than a scoreline.
  *
- * A win and a loss are not opposite ends of one number here. A pair can share a play
- * that neither of them won, and thanks to ties they can share one that both of them did,
- * so "3 - 1" was quietly hiding whatever the rest of the plays were.
+ * A win and a loss are not opposite ends of one number here: plenty of the plays a pair
+ * shares end with neither of them ahead of the other. "3 - 1 (7)" left those three plays
+ * to the reader, and gave them nothing to work out what they were from.
  *
  * The letters carry the meaning and the colours only reinforce it, which is the whole
  * reason a reader who cannot separate the green from the red still gets the record.

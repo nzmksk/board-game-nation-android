@@ -385,10 +385,17 @@ interface StatsDao {
     /**
      * Head-to-head against the device owner. Only competitive sessions count: in a
      * co-op everybody wins or loses together, which says nothing about who is better.
+     * Abandoned plays do not count either -- a game nobody finished settled nothing
+     * between the two, and every other statistic here already filters them out.
      *
-     * A play the two both won is a draw, not a win and a loss. Ties for first are real
-     * here -- `is_winner` is set on every tied player -- so each column is conditioned on
-     * what the other player did rather than counting its own flag in isolation.
+     * The three outcomes are about which of the pair came out ahead, so they turn on
+     * both flags rather than on either one alone. A win is a sole win. Everything that
+     * is not one player alone winning is a draw between them: a shared victory, since
+     * `is_winner` is set on every player tied for first, and equally a play a third
+     * player took, where the two of them finished level behind.
+     *
+     * So the three account for every shared play, which is why the count of them is not
+     * shown beside the record any more.
      *
      * Ordered by how the record reads rather than by how much of it there is: wins over
      * the opponent first, then the fewest losses to them. A 10-0 outranks a 10-5, which
@@ -402,10 +409,11 @@ interface StatsDao {
             COUNT(*) AS shared_plays,
             COALESCE(SUM(self.is_winner = 1 AND opp.is_winner = 0), 0) AS self_wins,
             COALESCE(SUM(self.is_winner = 0 AND opp.is_winner = 1), 0) AS opponent_wins,
-            COALESCE(SUM(self.is_winner = 1 AND opp.is_winner = 1), 0) AS draws
+            COALESCE(SUM(self.is_winner = opp.is_winner), 0) AS draws
         FROM session_players opp
         JOIN players p ON p.id = opp.player_id
-        JOIN sessions s ON s.id = opp.session_id AND s.is_draft = 0 AND s.is_cooperative = 0
+        JOIN sessions s ON s.id = opp.session_id
+            AND s.is_draft = 0 AND s.is_cooperative = 0 AND s.is_incomplete = 0
         JOIN session_players self ON self.session_id = s.id
         JOIN players sp2 ON sp2.id = self.player_id AND sp2.is_self = 1
         WHERE p.is_self = 0
