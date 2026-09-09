@@ -197,6 +197,12 @@
     <string name="session_teaching">Teaching game</string>
     <string name="session_filter_any_game">Any game</string>
     <string name="session_filter_any_player">Anyone</string>
+    <string name="sessions_drafts_header">Unfinished sessions</string>
+    <string name="session_draft_unsaved">Timed but not saved</string>
+    <string name="session_draft_save">Save it</string>
+    <string name="session_draft_discard">Discard</string>
+    <string name="session_draft_discard_confirm_title">Discard this session?</string>
+    <string name="session_draft_discard_confirm_body">The time recorded for %1$s will be lost.</string>
 
     <!-- Session edit -->
     <string name="session_edit_new">Log a play</string>

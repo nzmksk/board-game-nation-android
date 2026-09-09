@@ -26,11 +26,13 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,14 +51,34 @@ import com.boardgamenation.tracker.R
 import com.boardgamenation.tracker.core.time.DurationFormat
 import com.boardgamenation.tracker.data.db.projection.SessionListItem
 import com.boardgamenation.tracker.ui.components.BottomBarGap
+import com.boardgamenation.tracker.ui.components.ConfirmDialog
 import com.boardgamenation.tracker.ui.components.EmptyState
 import com.boardgamenation.tracker.ui.components.GameThumbnail
 import com.boardgamenation.tracker.ui.components.LoadingRows
+import com.boardgamenation.tracker.ui.components.SectionHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionListScreen(onOpenSession: (Long) -> Unit, onNewSession: () -> Unit, viewModel: SessionListViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Discarding throws away the only record of how long the play took, and the row puts
+    // that one tap away from the button that keeps it, so it asks first.
+    var discarding by remember { mutableStateOf<SessionListItem?>(null) }
+
+    discarding?.let { draft ->
+        ConfirmDialog(
+            title = stringResource(R.string.session_draft_discard_confirm_title),
+            body = stringResource(R.string.session_draft_discard_confirm_body, draft.gameTitle),
+            confirmLabel = stringResource(R.string.session_draft_discard),
+            destructive = true,
+            onConfirm = {
+                viewModel.discardDraft(draft.id)
+                discarding = null
+            },
+            onDismiss = { discarding = null }
+        )
+    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.sessions_title)) }) },
@@ -78,29 +100,47 @@ fun SessionListScreen(onOpenSession: (Long) -> Unit, onNewSession: () -> Unit, v
                 onClear = viewModel::clearFilters
             )
 
-            when {
-                state.isLoading -> LoadingRows()
-
-                state.sessions.isEmpty() -> EmptyState(
-                    title = stringResource(
-                        if (state.filter.gameId != null || state.filter.playerId != null) {
-                            R.string.sessions_empty_filtered
-                        } else {
-                            R.string.sessions_empty
+            if (state.isLoading) {
+                LoadingRows()
+            } else {
+                LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {
+                    // A timed play nobody has saved is work in progress, so it leads the
+                    // tab rather than sitting in date order among the finished plays --
+                    // its date is only whenever the clock happened to be started.
+                    if (state.drafts.isNotEmpty()) {
+                        item {
+                            SectionHeader(stringResource(R.string.sessions_drafts_header))
                         }
-                    ),
-                    icon = Icons.AutoMirrored.Filled.List
-                )
+                        items(state.drafts, key = { DRAFT_KEY + it.id }) { draft ->
+                            DraftRow(
+                                draft = draft,
+                                onResume = { onOpenSession(draft.id) },
+                                onDiscard = { discarding = draft }
+                            )
+                        }
+                    }
 
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(bottom = 96.dp)
-                ) {
-                    items(state.sessions, key = { it.id }) { session ->
-                        SessionRow(
-                            session = session,
-                            showGameTitle = true,
-                            onClick = { onOpenSession(session.id) }
-                        )
+                    if (state.sessions.isEmpty()) {
+                        item {
+                            EmptyState(
+                                title = stringResource(
+                                    if (state.filter.gameId != null || state.filter.playerId != null) {
+                                        R.string.sessions_empty_filtered
+                                    } else {
+                                        R.string.sessions_empty
+                                    }
+                                ),
+                                icon = Icons.AutoMirrored.Filled.List
+                            )
+                        }
+                    } else {
+                        items(state.sessions, key = { it.id }) { session ->
+                            SessionRow(
+                                session = session,
+                                showGameTitle = true,
+                                onClick = { onOpenSession(session.id) }
+                            )
+                        }
                     }
                 }
             }
@@ -185,6 +225,69 @@ private fun FilterRow(state: SessionListUiState, onGame: (Long?) -> Unit, onPlay
                             playerMenu = false
                         }
                     )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A draft and a logged play can share an id, and the list holds both, so the draft half
+ * of it is prefixed rather than left to collide.
+ */
+private const val DRAFT_KEY = "draft-"
+
+/**
+ * A draft: the game and what the clock managed to record, with the two things left to
+ * decide about it. Tinted apart from the logged plays below it, because it is not one.
+ */
+@Composable
+private fun DraftRow(draft: SessionListItem, onResume: () -> Unit, onDiscard: () -> Unit, modifier: Modifier = Modifier) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 3.dp)
+            .clickable(onClick = onResume)
+    ) {
+        Column(Modifier.padding(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GameThumbnail(path = draft.thumbnailPath, title = draft.gameTitle, size = 44.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = draft.gameTitle,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${draft.playedOn} · ${DurationFormat.minutes(draft.durationMinutes)}" +
+                            " · ${pluralStringResource(
+                                R.plurals.unit_players,
+                                draft.playerCount,
+                                draft.playerCount
+                            )}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = stringResource(R.string.session_draft_unsaved),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+            ) {
+                TextButton(onClick = onDiscard) {
+                    Text(stringResource(R.string.session_draft_discard))
+                }
+                FilledTonalButton(onClick = onResume) {
+                    Text(stringResource(R.string.session_draft_save))
                 }
             }
         }
