@@ -43,10 +43,6 @@
     </plurals>
     <string name="dashboard_recent_achievement">Recently unlocked</string>
     <string name="dashboard_view_all">View all</string>
-    <string name="dashboard_draft_title">Unfinished session</string>
-    <string name="dashboard_draft_body">A timed session for %1$s was left open. What would you like to do with it?</string>
-    <string name="dashboard_draft_save">Save it</string>
-    <string name="dashboard_draft_discard">Discard</string>
     <!-- %2$d is the lending reminder threshold, which steps in fives and so is never 1. -->
     <plurals name="dashboard_overdue_loans">
         <item quantity="one">%1$d game lent out for over %2$d days</item>
@@ -197,6 +193,12 @@
     <string name="session_teaching">Teaching game</string>
     <string name="session_filter_any_game">Any game</string>
     <string name="session_filter_any_player">Anyone</string>
+    <string name="sessions_drafts_header">Unfinished sessions</string>
+    <string name="session_draft_unsaved">Timed but not saved</string>
+    <string name="session_draft_save">Save it</string>
+    <string name="session_draft_discard">Discard</string>
+    <string name="session_draft_discard_confirm_title">Discard this session?</string>
+    <string name="session_draft_discard_confirm_body">The time recorded for %1$s will be lost.</string>
 
     <!-- Session edit -->
     <string name="session_edit_new">Log a play</string>

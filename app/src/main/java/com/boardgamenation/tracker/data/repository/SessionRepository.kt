@@ -46,7 +46,11 @@ class SessionRepository @Inject constructor(
 
     fun observeParticipants(sessionId: Long): Flow<List<SessionParticipant>> = sessionDao.observeParticipants(sessionId)
 
-    fun observeLatestDraft(): Flow<SessionEntity?> = sessionDao.observeLatestDraft()
+    /** The unsaved plays, filtered alongside the list they sit above. */
+    fun observeDrafts(filter: SessionFilter): Flow<List<SessionListItem>> = sessionDao.observeDrafts(
+        gameId = filter.gameId,
+        playerId = filter.playerId
+    )
 
     /** Sudden-death reasons this game has already been given, newest first. */
     fun observeEndReasonsFor(gameId: Long): Flow<List<String>> = sessionDao.observeEndReasonsFor(gameId)

@@ -148,8 +148,7 @@ fun AppNavigation(
                         onStartTimer = { navController.navigate(Route.TimerSetup()) },
                         onOpenSession = { navController.navigate(Route.SessionEdit(sessionId = it)) },
                         onOpenSessions = { navController.navigate(Route.Sessions()) },
-                        onOpenAchievements = { navController.navigate(Route.Achievements) },
-                        onResumeDraft = { navController.navigate(Route.SessionEdit(sessionId = it)) }
+                        onOpenAchievements = { navController.navigate(Route.Achievements) }
                     )
                 }
 

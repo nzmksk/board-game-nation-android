@@ -21,9 +21,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 data class SessionListUiState(
     val sessions: List<SessionListItem> = emptyList(),
+
+    /** Timed plays nobody has saved yet, listed above the logged ones. */
+    val drafts: List<SessionListItem> = emptyList(),
     val games: List<GameEntity> = emptyList(),
     val players: List<PlayerEntity> = emptyList(),
     val filter: SessionFilter = SessionFilter(),
@@ -52,12 +56,14 @@ class SessionListViewModel @Inject constructor(
 
     val uiState: StateFlow<SessionListUiState> = combine(
         filter.flatMapLatest { sessionRepository.observeSessions(it) },
+        filter.flatMapLatest { sessionRepository.observeDrafts(it) },
         gameRepository.observeBaseGames(),
         playerRepository.observeActive(),
         filter
-    ) { sessions, games, players, currentFilter ->
+    ) { sessions, drafts, games, players, currentFilter ->
         SessionListUiState(
             sessions = sessions,
+            drafts = drafts,
             games = games,
             players = players,
             filter = currentFilter,
@@ -79,5 +85,9 @@ class SessionListViewModel @Inject constructor(
 
     fun clearFilters() {
         filter.value = SessionFilter()
+    }
+
+    fun discardDraft(id: Long) {
+        viewModelScope.launch { sessionRepository.discardDraft(id) }
     }
 }
