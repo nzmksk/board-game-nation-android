@@ -399,6 +399,11 @@
     <string name="stats_nemesis_body">%1$s beats you %2$d%% of the time.</string>
     <string name="stats_win_rate_by_game">Win rate by game</string>
     <string name="stats_average_score">Average score</string>
+    <string name="stats_personal_best">Personal best</string>
+    <!-- A best score with the number of scored plays it came from: 92 (7) -->
+    <string name="stats_personal_best_value">%1$s (%2$d)</string>
+    <!-- The same, at a game where the lowest score wins, so the small number reads as the good one -->
+    <string name="stats_personal_best_value_low_wins">%1$s (%2$d) · lowest wins</string>
     <string name="stats_no_data">Not enough data yet.</string>
     <plurals name="stats_plays_value">
         <item quantity="one">%1$d play</item>

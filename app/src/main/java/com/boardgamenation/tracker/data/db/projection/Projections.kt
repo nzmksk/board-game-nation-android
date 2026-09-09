@@ -157,6 +157,26 @@ data class GameWinRateRow(
 )
 
 /**
+ * A player's best result at one game.
+ *
+ * Which number counts as best is the game's own business. [highScoreWins] is false for
+ * golf scoring, where the smallest number is the good one, and it travels with the row
+ * because a low figure under a "personal best" heading otherwise reads as a mistake.
+ *
+ * The sample size comes along for the same reason it does on [GameWinRateRow]: a best
+ * off one play and a best off twenty are the same number and not the same fact.
+ */
+data class PersonalBestRow(
+    @ColumnInfo(name = "game_id") val gameId: Long,
+    @ColumnInfo(name = "title") val title: String,
+    @ColumnInfo(name = "best_score") val bestScore: Double,
+    @ColumnInfo(name = "high_score_wins") val highScoreWins: Boolean,
+
+    /** Scored plays the best was taken from. */
+    @ColumnInfo(name = "plays") val plays: Int
+)
+
+/**
  * How the player who went first has fared, over the plays that recorded a turn order.
  *
  * The rate alone does not answer the question. Winning 40% of the time is a commanding

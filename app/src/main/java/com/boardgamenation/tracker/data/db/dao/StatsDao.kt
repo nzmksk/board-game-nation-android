@@ -8,6 +8,7 @@ import com.boardgamenation.tracker.data.db.projection.FirstPlayerRecord
 import com.boardgamenation.tracker.data.db.projection.GameWinRateRow
 import com.boardgamenation.tracker.data.db.projection.HeadToHeadRow
 import com.boardgamenation.tracker.data.db.projection.LabelledValue
+import com.boardgamenation.tracker.data.db.projection.PersonalBestRow
 import com.boardgamenation.tracker.data.db.projection.PlayerStandingRow
 import com.boardgamenation.tracker.data.db.projection.SessionListItem
 import kotlinx.coroutines.flow.Flow
@@ -436,4 +437,39 @@ interface StatsDao {
         """
     )
     fun observeWinRateByGame(playerId: Long): Flow<List<GameWinRateRow>>
+
+    /**
+     * The best score the player has ever recorded at each game they have scored one at.
+     *
+     * Best is not always biggest. A game flagged as high-score-wins takes the largest
+     * number; golf scoring takes the smallest, and MAX there would report somebody's
+     * worst round as their record. The flag comes back with the row so the screen can
+     * say which of the two it is showing.
+     *
+     * The same plays count as in the average, and for the same reasons: a draft is not a
+     * play yet, and a play a rule stopped early never reached final scoring, so the
+     * partial number against it is not a record of anything.
+     *
+     * Ordered by how much the player has played the game rather than by the score. Two
+     * games' scores share no scale -- 92 at Wingspan against 8 at Hive is not a ranking
+     * of anything -- so sorting the numbers against each other would invent a comparison
+     * the data does not support.
+     */
+    @Query(
+        """
+        SELECT g.id AS game_id,
+               g.title AS title,
+               g.high_score_wins AS high_score_wins,
+               COUNT(*) AS plays,
+               CASE WHEN g.high_score_wins = 1 THEN MAX(sp.score) ELSE MIN(sp.score) END AS best_score
+        FROM session_players sp
+        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0
+            AND COALESCE(s.end_condition, 'STANDARD') = 'STANDARD'
+        JOIN games g ON g.id = s.game_id
+        WHERE sp.player_id = :playerId AND sp.score IS NOT NULL
+        GROUP BY g.id
+        ORDER BY plays DESC, title COLLATE NOCASE
+        """
+    )
+    fun observePersonalBestByGame(playerId: Long): Flow<List<PersonalBestRow>>
 }
