@@ -330,6 +330,60 @@ class ShareCardTest {
         assertTrue(card.standings.all { it.isNewPlayer })
     }
 
+    /**
+     * Who set a record is worked out from the whole history rather than read off the
+     * form, so it arrives as a set of player ids and has to find its way onto the right
+     * rows after the sort has moved them.
+     */
+    @Test
+    fun `a personal best is marked on the row of the player who set it`() {
+        val card = ShareCard.of(
+            form(
+                participants = listOf(
+                    player(1, "Hafiz", score = 71.0, placement = 3),
+                    player(2, "Aina", score = 94.0, placement = 1, isWinner = true),
+                    player(3, "Ben", score = 88.0, placement = 2)
+                )
+            ),
+            personalBests = setOf(3L)
+        )
+
+        assertEquals(listOf("Aina", "Ben", "Hafiz"), namesOn(card))
+        assertEquals(listOf(false, true, false), card.standings.map { it.isPersonalBest })
+    }
+
+    /** A record is a personal one: losing the evening and still beating your own best. */
+    @Test
+    fun `a player who lost can still have set a record`() {
+        val card = ShareCard.of(
+            form(
+                participants = listOf(
+                    player(1, "Hafiz", score = 71.0, placement = 2),
+                    player(2, "Aina", score = 94.0, placement = 1, isWinner = true)
+                )
+            ),
+            personalBests = setOf(1L)
+        )
+
+        val hafiz = card.standings.single { it.name == "Hafiz" }
+        assertTrue(hafiz.isPersonalBest)
+        assertEquals(false, hafiz.isWinner)
+    }
+
+    @Test
+    fun `a play nobody has a history at marks no records`() {
+        val card = ShareCard.of(
+            form(
+                participants = listOf(
+                    player(1, "Hafiz", score = 71.0, placement = 2),
+                    player(2, "Aina", score = 94.0, placement = 1, isWinner = true)
+                )
+            )
+        )
+
+        assertTrue(card.standings.none { it.isPersonalBest })
+    }
+
     @Test
     fun `the card knows whether there are scores to print`() {
         val scored = ShareCard.of(
