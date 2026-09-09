@@ -154,7 +154,11 @@ class SessionEditViewModel @Inject constructor(
                     .takeIf { it != 0L }
                     ?.let { sessionRepository.observeTeamsFor(it).first() }
                     .orEmpty(),
-                isNew = route.sessionId == 0L
+                isNew = route.sessionId == 0L,
+
+                // Carried across because this replaces the state rather than amending it,
+                // and a device does not grow a camera between construction and loading.
+                canTakePhoto = photoCaptures.isSupported
             )
         }
     }
