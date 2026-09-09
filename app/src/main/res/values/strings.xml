@@ -119,6 +119,8 @@
     <string name="game_detail_tags">Tags</string>
     <string name="game_detail_notes">Notes</string>
     <string name="game_detail_purchase">Purchase</string>
+    <string name="game_detail_accessories">Accessories</string>
+    <string name="game_detail_total_cost">Total cost</string>
     <string name="game_detail_log_play">Log a play</string>
     <string name="game_detail_start_timer">Start timer</string>
     <string name="game_detail_on_the_shelf">On the shelf</string>
@@ -162,6 +164,11 @@
     <string name="game_edit_price">Price</string>
     <string name="game_edit_currency">Currency</string>
     <string name="game_edit_purchase_note">Purchase note</string>
+    <string name="game_edit_other_costs">Other costs</string>
+    <string name="game_edit_cost_label">Sleeves, insert, shipping…</string>
+    <string name="game_edit_cost_amount">Cost</string>
+    <string name="game_edit_add_cost">Add another cost</string>
+    <string name="game_edit_remove_cost">Remove this cost</string>
     <string name="game_edit_status">Status</string>
     <string name="game_edit_wishlist_priority">Wishlist priority</string>
     <string name="game_edit_is_expansion">This is an expansion</string>

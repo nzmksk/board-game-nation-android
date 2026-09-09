@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -225,6 +226,33 @@ fun GameEditScreen(
             }
 
             item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.game_edit_other_costs),
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = viewModel::addCost) {
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = stringResource(R.string.game_edit_add_cost)
+                        )
+                    }
+                }
+            }
+
+            itemsIndexed(state.otherCosts) { index, line ->
+                CostLineRow(
+                    line = line,
+                    onChange = { viewModel.updateCost(index, it) },
+                    onRemove = { viewModel.removeCost(index) }
+                )
+            }
+
+            item {
                 OutlinedTextField(
                     value = state.purchaseNote,
                     onValueChange = { v -> viewModel.update { it.copy(purchaseNote = v) } },
@@ -377,6 +405,39 @@ private fun NumberField(value: String, label: String, onChange: (String) -> Unit
         ),
         modifier = modifier
     )
+}
+
+/**
+ * The label leads and the amount follows, because the label is what makes the line
+ * readable later: an accessory nobody named is a number on a screen a year from now.
+ */
+@Composable
+private fun CostLineRow(line: CostLine, onChange: (CostLine) -> Unit, onRemove: () -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedTextField(
+            value = line.label,
+            onValueChange = { onChange(line.copy(label = it)) },
+            label = { Text(stringResource(R.string.game_edit_cost_label)) },
+            singleLine = true,
+            modifier = Modifier.weight(1.6f)
+        )
+        NumberField(
+            value = line.amount,
+            label = stringResource(R.string.game_edit_cost_amount),
+            decimal = true,
+            onChange = { onChange(line.copy(amount = it)) },
+            modifier = Modifier.weight(1f)
+        )
+        IconButton(onClick = onRemove) {
+            Icon(
+                Icons.Filled.Close,
+                contentDescription = stringResource(R.string.game_edit_remove_cost)
+            )
+        }
+    }
 }
 
 @Composable
