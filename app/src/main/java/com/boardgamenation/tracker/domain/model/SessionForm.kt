@@ -41,8 +41,12 @@ data class SessionForm(
     val highScoreWins: Boolean = true,
     val coopOutcome: CoopOutcome? = null,
 
-    /** The configuration played: expansion set, modules, level, scenario. Free text. */
-    val mode: String? = null,
+    /**
+     * The configurations played: expansion sets, modules, a level, a scenario. Free
+     * text, and a list because a game is very often set up several ways at once --
+     * Heat's Championship season with Legends and Weather on top of it.
+     */
+    val modes: List<String> = emptyList(),
 
     /**
      * The side that won, for a team game. Not stored as a column of its own: the
@@ -82,6 +86,15 @@ data class SessionForm(
     val derivePlacements: Boolean = true
 ) {
     val isCooperative: Boolean get() = scoringMode == ScoringMode.COOPERATIVE
+
+    /**
+     * The configurations read as one line, which is what the session list, the share
+     * card and the statistics show.
+     *
+     * Derived rather than held beside [modes] so the two cannot come to disagree, and
+     * the `sessions.mode` column is written from this on every save for the same reason.
+     */
+    val mode: String? get() = SessionModes.label(modes)
 
     /** Sides win together, so nobody is marked a winner individually. */
     val isTeamBased: Boolean get() = scoringMode.recordsSides
@@ -127,6 +140,39 @@ data class SessionForm(
 
     /** The form is savable once it names a game and has at least one player. */
     val isValid: Boolean get() = gameId != 0L && participants.isNotEmpty()
+}
+
+/**
+ * The configurations one play was set up with.
+ *
+ * A set, not a sentence. The two rules here are what keep it one: a label is what
+ * somebody typed with the spaces taken off, and naming the same configuration twice
+ * names it once -- matched case-insensitively, the way sides and factions are matched
+ * everywhere else, because "Weather" typed tonight and "weather" typed last month are
+ * the same module to everybody except a string comparison.
+ *
+ * Nothing here ever splits a label. The user's own wording is the whole point of free
+ * text, and a separator that divides "Championship + Legends" correctly cuts "Cities &
+ * Knights" in half.
+ */
+object SessionModes {
+
+    /** How the set reads on one line: "Championship + Legends + Weather". */
+    const val SEPARATOR = " + "
+
+    /** The labels worth storing, in the order they were named. */
+    fun clean(modes: List<String>): List<String> = modes.map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .distinctBy { it.lowercase() }
+
+    /**
+     * The one line every list and card shows, or null when nobody recorded anything.
+     * A play with no configuration must read as absent rather than as an empty chip.
+     */
+    fun label(modes: List<String>): String? = clean(modes).joinToString(SEPARATOR).takeIf { it.isNotEmpty() }
+
+    /** Whether this configuration is already on the play, however it was capitalised. */
+    fun contains(modes: List<String>, mode: String): Boolean = modes.any { it.equals(mode.trim(), ignoreCase = true) }
 }
 
 /**

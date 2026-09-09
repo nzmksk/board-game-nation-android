@@ -21,6 +21,7 @@ import com.boardgamenation.tracker.domain.model.ScoringMode
 import com.boardgamenation.tracker.domain.model.Seating
 import com.boardgamenation.tracker.domain.model.SessionEndCondition
 import com.boardgamenation.tracker.domain.model.SessionForm
+import com.boardgamenation.tracker.domain.model.SessionModes
 import com.boardgamenation.tracker.domain.model.TurnOrder
 import com.boardgamenation.tracker.domain.share.ShareCard
 import com.boardgamenation.tracker.domain.usecase.DeleteSessionUseCase
@@ -236,6 +237,28 @@ class SessionEditViewModel @Inject constructor(
 
     fun update(block: (SessionForm) -> SessionForm) {
         _state.value = _state.value.copy(form = block(_state.value.form), validationError = null)
+    }
+
+    /**
+     * Configurations are added and removed by name, the way tags are on the game form.
+     * A play is set up out of several at once and each one is a separate answer, so the
+     * chips are not a picker with one slot: naming Championship does not un-name
+     * Weather.
+     *
+     * Adding one already on the play does nothing rather than listing it twice, and
+     * matches however it was capitalised, so tapping a chip the user typed differently
+     * last time is a no-op instead of a duplicate.
+     */
+    fun addMode(mode: String) {
+        val trimmed = mode.trim()
+        if (trimmed.isEmpty()) return
+        update { form ->
+            if (SessionModes.contains(form.modes, trimmed)) form else form.copy(modes = form.modes + trimmed)
+        }
+    }
+
+    fun removeMode(mode: String) {
+        update { form -> form.copy(modes = form.modes.filterNot { it.equals(mode, ignoreCase = true) }) }
     }
 
     fun addPlayer(player: PlayerEntity) {
