@@ -1,6 +1,7 @@
 package com.boardgamenation.tracker.domain.usecase
 
 import com.boardgamenation.tracker.data.db.entity.AchievementEntity
+import com.boardgamenation.tracker.data.photo.SessionPhotoStore
 import com.boardgamenation.tracker.data.repository.AchievementRepository
 import com.boardgamenation.tracker.data.repository.SessionRepository
 import com.boardgamenation.tracker.domain.model.SessionForm
@@ -35,10 +36,14 @@ class SaveSessionUseCase @Inject constructor(
 @Singleton
 class DeleteSessionUseCase @Inject constructor(
     private val sessionRepository: SessionRepository,
-    private val achievementRepository: AchievementRepository
+    private val achievementRepository: AchievementRepository,
+    private val photoStore: SessionPhotoStore
 ) {
     suspend operator fun invoke(sessionId: Long) {
+        // Read before the row goes, or the only pointer to the photo goes with it.
+        val photo = sessionRepository.getSession(sessionId)?.photoUri
         sessionRepository.delete(sessionId)
+        photoStore.delete(photo)
         achievementRepository.reconcile()
     }
 }
@@ -47,10 +52,15 @@ class DeleteSessionUseCase @Inject constructor(
 @Singleton
 class EditSessionUseCase @Inject constructor(
     private val sessionRepository: SessionRepository,
-    private val achievementRepository: AchievementRepository
+    private val achievementRepository: AchievementRepository,
+    private val photoStore: SessionPhotoStore
 ) {
     suspend operator fun invoke(form: SessionForm): SaveSessionResult {
+        val previousPhoto = sessionRepository.getSession(form.id)?.photoUri
         val id = sessionRepository.save(form)
+        // Only once the swap is written: until then the old photo is still the play's,
+        // and an edit that never gets saved must leave it where it was.
+        if (previousPhoto != null && previousPhoto != form.photoUri) photoStore.delete(previousPhoto)
         achievementRepository.reconcile()
         val unlocked = achievementRepository.evaluateAfterSession(id)
         return SaveSessionResult(id, unlocked)
