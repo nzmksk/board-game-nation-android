@@ -9,6 +9,7 @@ import com.boardgamenation.tracker.R
 import com.boardgamenation.tracker.core.time.AppClock
 import com.boardgamenation.tracker.data.db.entity.GameEntity
 import com.boardgamenation.tracker.data.db.entity.PlayerEntity
+import com.boardgamenation.tracker.data.photo.SessionPhotoCaptures
 import com.boardgamenation.tracker.data.photo.SessionPhotoStore
 import com.boardgamenation.tracker.data.repository.GameRepository
 import com.boardgamenation.tracker.data.repository.PlayerRepository
@@ -60,6 +61,9 @@ data class SessionEditUiState(
 
     /** True while the result card is being drawn, which takes a moment on a big table. */
     val isSharing: Boolean = false,
+
+    /** Whether the device has a camera, and so whether taking a photo is worth offering. */
+    val canTakePhoto: Boolean = false,
     val validationError: Int? = null
 )
 
@@ -73,8 +77,17 @@ sealed interface SessionEditEvent {
 
     data object ShareFailed : SessionEditEvent
 
+    /**
+     * An empty file a camera app should be pointed at. The screen launches the camera,
+     * because a view model has no activity to get a result back to.
+     */
+    data class CaptureReady(val destination: Uri) : SessionEditEvent
+
     /** The picked photo could not be read, so nothing was attached. */
     data object PhotoFailed : SessionEditEvent
+
+    /** No camera could be opened, so there was never a photo to attach. */
+    data object CameraFailed : SessionEditEvent
 }
 
 @HiltViewModel
@@ -88,13 +101,14 @@ class SessionEditViewModel @Inject constructor(
     private val deleteSession: DeleteSessionUseCase,
     private val shareImages: SessionShareImages,
     private val photoStore: SessionPhotoStore,
+    private val photoCaptures: SessionPhotoCaptures,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
     private val clock: AppClock
 ) : ViewModel() {
 
     private val route = savedStateHandle.toRoute<Route.SessionEdit>()
 
-    private val _state = MutableStateFlow(SessionEditUiState())
+    private val _state = MutableStateFlow(SessionEditUiState(canTakePhoto = photoCaptures.isSupported))
     val state: StateFlow<SessionEditUiState> = _state.asStateFlow()
 
     private val _events = MutableSharedFlow<SessionEditEvent>(extraBufferCapacity = 4)
@@ -186,6 +200,22 @@ class SessionEditViewModel @Inject constructor(
             unsavedPhotos += stored
             update { it.copy(photoUri = stored) }
             discardIfUnsaved(replaced)
+        }
+    }
+
+    /**
+     * Asks for somewhere to put a photo that has not been taken yet.
+     *
+     * The camera is the screen's to launch and the result is the screen's to report
+     * back through [attachPhoto], which copies the capture inwards exactly as it copies
+     * a picked one: the cache file is a handover, not a home.
+     */
+    fun takePhoto() {
+        viewModelScope.launch {
+            val destination = photoCaptures.newCapture()
+            _events.emit(
+                destination?.let(SessionEditEvent::CaptureReady) ?: SessionEditEvent.CameraFailed
+            )
         }
     }
 

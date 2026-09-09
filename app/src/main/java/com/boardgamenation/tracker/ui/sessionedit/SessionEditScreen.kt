@@ -1,5 +1,6 @@
 package com.boardgamenation.tracker.ui.sessionedit
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -53,6 +54,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,6 +102,7 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
     val chooserTitle = stringResource(R.string.share_chooser_title)
     val shareFailed = stringResource(R.string.share_failed)
     val photoFailed = stringResource(R.string.session_edit_photo_failed)
+    val cameraFailed = stringResource(R.string.session_edit_camera_failed)
 
     // The picker's uri is readable only for as long as this screen holds the grant, so
     // the view model copies the picture in rather than storing the uri itself.
@@ -107,6 +110,18 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         uri?.let(viewModel::attachPhoto)
+    }
+
+    // Where the camera was sent to write, remembered because the camera reports only
+    // whether it wrote and never what it wrote to. Saved rather than merely remembered:
+    // a camera app is heavy enough to get this process killed behind it, and coming back
+    // to a taken photo with nowhere to look for it would lose it.
+    var capture by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val camera = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { taken ->
+        capture?.takeIf { taken }?.let(viewModel::attachPhoto)
+        capture = null
     }
 
     LaunchedEffect(Unit) {
@@ -124,7 +139,19 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
                 // did not get made, and the play is still sitting there to try again on.
                 SessionEditEvent.ShareFailed -> snackbarHost.showSnackbar(shareFailed)
 
+                // A camera is somebody else's activity, and a device can report one and
+                // still have nothing installed that answers.
+                is SessionEditEvent.CaptureReady -> {
+                    capture = event.destination
+                    runCatching { camera.launch(event.destination) }.onFailure {
+                        capture = null
+                        snackbarHost.showSnackbar(cameraFailed)
+                    }
+                }
+
                 SessionEditEvent.PhotoFailed -> snackbarHost.showSnackbar(photoFailed)
+
+                SessionEditEvent.CameraFailed -> snackbarHost.showSnackbar(cameraFailed)
             }
         }
     }
@@ -519,15 +546,17 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
                                 onClick = viewModel::removePhoto
                             ) { Text(stringResource(R.string.session_edit_remove_photo)) }
                         }
-                        OutlinedButton(
-                            onClick = {
+                        AddPhotoButton(
+                            canTakePhoto = state.canTakePhoto,
+                            onTake = viewModel::takePhoto,
+                            onChoose = {
                                 photoPicker.launch(
                                     PickVisualMediaRequest(
                                         ActivityResultContracts.PickVisualMedia.ImageOnly
                                     )
                                 )
                             }
-                        ) { Text(stringResource(R.string.action_add)) }
+                        )
                     }
 
                     if (photoPath != null) {
@@ -879,6 +908,43 @@ private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+/**
+ * Where a photo comes from.
+ *
+ * Two sources are a menu rather than two buttons: the row already carries a label and a
+ * remove button, and a play is photographed at the table, where the answer is nearly
+ * always the camera and the gallery is the afterthought. A device with no camera is not
+ * offered the choice at all -- one option in a menu is a button with an extra tap on it.
+ */
+@Composable
+private fun AddPhotoButton(canTakePhoto: Boolean, onTake: () -> Unit, onChoose: () -> Unit) {
+    if (!canTakePhoto) {
+        OutlinedButton(onClick = onChoose) { Text(stringResource(R.string.action_add)) }
+        return
+    }
+
+    var open by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(onClick = { open = true }) { Text(stringResource(R.string.action_add)) }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.session_edit_photo_take)) },
+                onClick = {
+                    open = false
+                    onTake()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.session_edit_photo_choose)) },
+                onClick = {
+                    open = false
+                    onChoose()
+                }
+            )
+        }
     }
 }
 
