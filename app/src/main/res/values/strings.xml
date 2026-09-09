@@ -396,8 +396,11 @@
     <string name="stats_spend_by_year">Spend by year</string>
     <string name="stats_dead_weight">Paid for, never played</string>
     <string name="stats_head_to_head">Head to head</string>
-    <string name="stats_head_to_head_record">%1$d – %2$d</string>
-    <string name="stats_shared_plays">(%1$d)</string>
+    <!-- A record read as three outcomes rather than a scoreline: 3W / 1L / 3D -->
+    <string name="stats_head_to_head_wins">%1$dW</string>
+    <string name="stats_head_to_head_losses">%1$dL</string>
+    <string name="stats_head_to_head_draws">%1$dD</string>
+    <string name="stats_head_to_head_separator">" / "</string>
     <string name="stats_unrated_count">Owned but unrated: %1$d</string>
     <plurals name="stats_unplayed_row">
         <item quantity="one">%1$s · %2$d day</item>
