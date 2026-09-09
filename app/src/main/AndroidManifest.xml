@@ -41,8 +41,9 @@
         </service>
 
         <!--
-            Shared result cards. Nothing else in the app is exposed: the provider is
-            not exported, and the paths file limits it to one cache subdirectory.
+            Shared result cards, and the empty file a camera app is asked to fill.
+            Nothing else in the app is exposed: the provider is not exported, and the
+            paths file limits it to those two cache subdirectories.
         -->
         <provider
             android:name="androidx.core.content.FileProvider"

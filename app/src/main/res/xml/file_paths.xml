@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    The only thing this app ever hands to another one: a rendered result card.
+    The two files this app ever hands to another one: a rendered result card on its way
+    to a share sheet, and an empty file on its way to a camera app to be filled in.
 
-    Scoped to a single cache subdirectory rather than the whole cache, so a grant made
-    for a shared picture can never reach the BGG image cache or anything else that
-    happens to be sitting in there.
+    Scoped to a subdirectory each rather than to the whole cache, so a grant made for one
+    of them can never reach the BGG image cache or anything else that happens to be
+    sitting in there.
 -->
 <paths>
     <cache-path name="shared_results" path="share/" />
+    <cache-path name="camera_captures" path="camera/" />
 </paths>
