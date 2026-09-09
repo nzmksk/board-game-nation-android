@@ -510,4 +510,53 @@ interface StatsDao {
         """
     )
     fun observePersonalBestByGame(playerId: Long): Flow<List<PersonalBestRow>>
+
+    /**
+     * Who walked away from one play holding a new record at that game.
+     *
+     * Asked of the play rather than of the player because that is the question the
+     * shared card puts: not "what is Hafiz's best at Wingspan", but "did this evening
+     * beat it". The answer is a set of player ids, one for each row of the session that
+     * came out in front of everything that player had scored at the game before.
+     *
+     * Strictly better, so equalling a record does not set one. A record has to be beaten
+     * to be new, and a card announcing a personal best next to a score somebody has
+     * already made would be overstating the evening.
+     *
+     * A player's first scored play of a game is deliberately not a best. There was
+     * nothing to beat, which is why the comparison is against MAX/MIN of the other
+     * plays: with no other plays those are null, and the comparison drops the row rather
+     * than crowning a debut. That play is already marked on the card as a first play.
+     *
+     * Which plays are allowed to hold the record, and which count as setting one, are
+     * the same rules [observePersonalBestByGame] uses -- a draft is not a play yet, and
+     * a play a rule stopped early never reached final scoring.
+     */
+    @Query(
+        """
+        SELECT sp.player_id
+        FROM session_players sp
+        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0
+            AND COALESCE(s.end_condition, 'STANDARD') = 'STANDARD'
+        JOIN games g ON g.id = s.game_id
+        WHERE sp.session_id = :sessionId AND sp.score IS NOT NULL
+          AND CASE WHEN g.high_score_wins = 1
+              THEN sp.score > (
+                  SELECT MAX(p.score) FROM session_players p
+                  JOIN sessions ps ON ps.id = p.session_id AND ps.is_draft = 0
+                      AND COALESCE(ps.end_condition, 'STANDARD') = 'STANDARD'
+                  WHERE p.player_id = sp.player_id AND ps.game_id = s.game_id
+                    AND p.session_id <> sp.session_id AND p.score IS NOT NULL
+              )
+              ELSE sp.score < (
+                  SELECT MIN(p.score) FROM session_players p
+                  JOIN sessions ps ON ps.id = p.session_id AND ps.is_draft = 0
+                      AND COALESCE(ps.end_condition, 'STANDARD') = 'STANDARD'
+                  WHERE p.player_id = sp.player_id AND ps.game_id = s.game_id
+                    AND p.session_id <> sp.session_id AND p.score IS NOT NULL
+              )
+              END
+        """
+    )
+    suspend fun personalBestsSetIn(sessionId: Long): List<Long>
 }

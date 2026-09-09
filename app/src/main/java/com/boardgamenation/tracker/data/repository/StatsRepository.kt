@@ -107,4 +107,13 @@ class StatsRepository @Inject constructor(private val statsDao: StatsDao, privat
     fun averageScoreByGame(playerId: Long, limit: Int = 10): Flow<List<LabelledValue>> = statsDao.observeAverageScoreByGame(playerId, limit)
 
     fun personalBestByGame(playerId: Long): Flow<List<PersonalBestRow>> = statsDao.observePersonalBestByGame(playerId)
+
+    /**
+     * The players who set a new personal best in one play, as a set to look names up in.
+     *
+     * A one-shot read rather than a flow: the caller is the share card, which is a
+     * picture of a play as it was saved and does not redraw itself when later plays
+     * change what the record is.
+     */
+    suspend fun personalBestsSetIn(sessionId: Long): Set<Long> = statsDao.personalBestsSetIn(sessionId).toSet()
 }
