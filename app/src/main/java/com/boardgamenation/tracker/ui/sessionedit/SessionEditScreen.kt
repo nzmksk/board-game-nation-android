@@ -1,6 +1,5 @@
 package com.boardgamenation.tracker.ui.sessionedit
 
-import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -86,20 +85,14 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
     // composable scope to read resources from.
     val chooserTitle = stringResource(R.string.share_chooser_title)
     val shareFailed = stringResource(R.string.share_failed)
+    val photoFailed = stringResource(R.string.session_edit_photo_failed)
 
-    // The photo picker hands back a uri the app can only read while the permission
-    // lasts, so the read grant is persisted before the uri is stored.
+    // The picker's uri is readable only for as long as this screen holds the grant, so
+    // the view model copies the picture in rather than storing the uri itself.
     val photoPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        runCatching {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-        }
-        viewModel.update { it.copy(photoUri = uri.toString()) }
+        uri?.let(viewModel::attachPhoto)
     }
 
     LaunchedEffect(Unit) {
@@ -116,6 +109,8 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
                 // A snackbar rather than a dialog: nothing was lost, the picture simply
                 // did not get made, and the play is still sitting there to try again on.
                 SessionEditEvent.ShareFailed -> snackbarHost.showSnackbar(shareFailed)
+
+                SessionEditEvent.PhotoFailed -> snackbarHost.showSnackbar(photoFailed)
             }
         }
     }
@@ -505,7 +500,7 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
                     )
                     if (!state.form.photoUri.isNullOrBlank()) {
                         TextButton(
-                            onClick = { viewModel.update { it.copy(photoUri = null) } }
+                            onClick = viewModel::removePhoto
                         ) { Text(stringResource(R.string.session_edit_remove_photo)) }
                     }
                     OutlinedButton(
