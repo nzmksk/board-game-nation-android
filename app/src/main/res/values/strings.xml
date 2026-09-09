@@ -237,6 +237,8 @@
     <string name="session_edit_photo">Attach a photo</string>
     <string name="session_edit_photo_attached">Photo attached</string>
     <string name="session_edit_remove_photo">Remove photo</string>
+    <string name="session_edit_photo_failed">That photo could not be read</string>
+    <string name="session_edit_photo_missing">This photo is no longer available</string>
     <string name="session_edit_ended_by">How it ended</string>
     <string name="session_edit_ended_standard">Played to the end</string>
     <string name="session_edit_ended_specific">A rule ended it</string>
@@ -575,6 +577,7 @@
     <!-- Content descriptions -->
     <string name="cd_game_thumbnail">Cover of %1$s</string>
     <string name="cd_no_thumbnail">No cover image</string>
+    <string name="cd_session_photo">Photo of this play</string>
     <string name="cd_expand">Expand</string>
     <string name="cd_collapse">Collapse</string>
     <string name="cd_achievement_locked">Locked achievement</string>

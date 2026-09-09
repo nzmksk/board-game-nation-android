@@ -9,9 +9,11 @@ import com.boardgamenation.tracker.R
 import com.boardgamenation.tracker.core.time.AppClock
 import com.boardgamenation.tracker.data.db.entity.GameEntity
 import com.boardgamenation.tracker.data.db.entity.PlayerEntity
+import com.boardgamenation.tracker.data.photo.SessionPhotoStore
 import com.boardgamenation.tracker.data.repository.GameRepository
 import com.boardgamenation.tracker.data.repository.PlayerRepository
 import com.boardgamenation.tracker.data.repository.SessionRepository
+import com.boardgamenation.tracker.di.ApplicationScope
 import com.boardgamenation.tracker.domain.model.CoopOutcome
 import com.boardgamenation.tracker.domain.model.ParticipantForm
 import com.boardgamenation.tracker.domain.model.ScoringMode
@@ -28,6 +30,7 @@ import com.boardgamenation.tracker.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -69,6 +72,9 @@ sealed interface SessionEditEvent {
     data class ShareReady(val image: Uri, val label: String) : SessionEditEvent
 
     data object ShareFailed : SessionEditEvent
+
+    /** The picked photo could not be read, so nothing was attached. */
+    data object PhotoFailed : SessionEditEvent
 }
 
 @HiltViewModel
@@ -81,6 +87,8 @@ class SessionEditViewModel @Inject constructor(
     private val editSession: EditSessionUseCase,
     private val deleteSession: DeleteSessionUseCase,
     private val shareImages: SessionShareImages,
+    private val photoStore: SessionPhotoStore,
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
     private val clock: AppClock
 ) : ViewModel() {
 
@@ -91,6 +99,15 @@ class SessionEditViewModel @Inject constructor(
 
     private val _events = MutableSharedFlow<SessionEditEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<SessionEditEvent> = _events.asSharedFlow()
+
+    /**
+     * Photos copied in during this edit that no saved play refers to yet.
+     *
+     * Only these may be deleted when one is swapped out or the screen is left: the photo
+     * a play arrived with is still the saved play's, and an edit that is abandoned has
+     * to leave it exactly where it was.
+     */
+    private val unsavedPhotos = mutableSetOf<String>()
 
     init {
         viewModelScope.launch {
@@ -152,6 +169,35 @@ class SessionEditViewModel @Inject constructor(
                 validationError = null
             )
         }
+    }
+
+    /**
+     * Attaching copies the picture in, because the picker's uri outlives neither the
+     * grant it came with nor the screen that asked for it.
+     */
+    fun attachPhoto(uri: Uri) {
+        viewModelScope.launch {
+            val stored = photoStore.store(uri)
+            if (stored == null) {
+                _events.emit(SessionEditEvent.PhotoFailed)
+                return@launch
+            }
+            val replaced = _state.value.form.photoUri
+            unsavedPhotos += stored
+            update { it.copy(photoUri = stored) }
+            discardIfUnsaved(replaced)
+        }
+    }
+
+    fun removePhoto() {
+        val removed = _state.value.form.photoUri
+        update { it.copy(photoUri = null) }
+        viewModelScope.launch { discardIfUnsaved(removed) }
+    }
+
+    /** Deletes a copy this edit made and then dropped, and nothing else. */
+    private suspend fun discardIfUnsaved(path: String?) {
+        if (path != null && unsavedPhotos.remove(path)) photoStore.delete(path)
     }
 
     fun update(block: (SessionForm) -> SessionForm) {
@@ -321,6 +367,8 @@ class SessionEditViewModel @Inject constructor(
         _state.value = _state.value.copy(isSaving = true)
         viewModelScope.launch {
             val result = if (_state.value.isNew) saveSession(form) else editSession(form)
+            // Saved: the photo on the form belongs to a play now, not to this screen.
+            form.photoUri?.let { unsavedPhotos -= it }
             _events.emit(
                 SessionEditEvent.Saved(result.sessionId, result.newlyUnlocked.map { it.name })
             )
@@ -361,4 +409,16 @@ class SessionEditViewModel @Inject constructor(
     }
 
     val scoringMode: ScoringMode get() = _state.value.form.scoringMode
+
+    /**
+     * An edit that is walked away from leaves no copies behind. The deletes outlive this
+     * view model by definition, so they run on the application's scope rather than one
+     * that is already cancelled.
+     */
+    override fun onCleared() {
+        val orphans = unsavedPhotos.toList()
+        unsavedPhotos.clear()
+        if (orphans.isEmpty()) return
+        applicationScope.launch { orphans.forEach { photoStore.delete(it) } }
+    }
 }
