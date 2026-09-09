@@ -12,6 +12,7 @@ import com.boardgamenation.tracker.data.db.entity.GameTagCrossRef
 import com.boardgamenation.tracker.data.db.entity.RubricCriterionEntity
 import com.boardgamenation.tracker.data.db.entity.RubricEntity
 import com.boardgamenation.tracker.data.db.entity.SessionExpansionEntity
+import com.boardgamenation.tracker.data.db.entity.SessionModeEntity
 import com.boardgamenation.tracker.data.db.projection.TableCountSummary
 import com.boardgamenation.tracker.data.repository.DataMaintenanceRepository
 import com.boardgamenation.tracker.domain.model.GameStatus
@@ -172,7 +173,14 @@ class CsvRoundTripTest {
                 durationMinutes = 45,
                 isCooperative = true
             ).copy(mode = "5 epidemics + mutation")
-        )
+        ).also { sessionId ->
+            db.sessionDao().insertModes(
+                listOf(
+                    SessionModeEntity(sessionId, "5 epidemics", sortOrder = 0),
+                    SessionModeEntity(sessionId, "mutation", sortOrder = 1)
+                )
+            )
+        }
 
         val rubricId = db.rubricDao().insertRubric(
             RubricEntity(name = "Strategy", description = "Decisions, mostly")
@@ -370,6 +378,42 @@ class CsvRoundTripTest {
 
         val modes = db.sessionDao().getAllSessions().mapNotNull { it.mode }
         assertEquals(listOf("5 epidemics + mutation"), modes)
+    }
+
+    /** The set behind that line comes back whole, and in the order it was named. */
+    @Test
+    fun `every configuration on a play survives the round trip`() = runTest {
+        populate()
+        val files = exporter.buildFiles()
+        maintenance.wipeUserData()
+
+        importer.import(files, ImportMode.REPLACE)
+
+        val sessionId = db.sessionDao().getAllSessions().single { it.mode != null }.id
+        assertEquals(
+            listOf("5 epidemics", "mutation"),
+            db.sessionDao().getModes(sessionId).map { it.mode }
+        )
+    }
+
+    /**
+     * An archive exported before the set existed carries the whole answer in the
+     * `sessions.csv` column and nothing else. Restoring it must leave a play that can be
+     * opened and saved without silently dropping the configuration it was logged with.
+     */
+    @Test
+    fun `an archive with no session_modes file still restores the configuration`() = runTest {
+        populate()
+        val files = exporter.buildFiles() - CsvSchema.SESSION_MODES
+        maintenance.wipeUserData()
+
+        importer.import(files, ImportMode.REPLACE)
+
+        val sessionId = db.sessionDao().getAllSessions().single { it.mode != null }.id
+        assertEquals(
+            listOf("5 epidemics + mutation"),
+            db.sessionDao().getModes(sessionId).map { it.mode }
+        )
     }
 
     @Test

@@ -74,6 +74,7 @@ class DataMaintenanceRepository @Inject constructor(
             sessions = sessionDao.count(),
             sessionPlayers = sessionDao.countParticipants(),
             sessionExpansions = sessionDao.countExpansions(),
+            sessionModes = sessionDao.countModes(),
             rubrics = rubricDao.countRubrics(),
             rubricCriteria = rubricDao.countCriteria(),
             gameRatings = rubricDao.countRatings(),
