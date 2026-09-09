@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -30,18 +31,21 @@ import com.boardgamenation.tracker.R
 import com.boardgamenation.tracker.data.db.entity.PlayerEntity
 import com.boardgamenation.tracker.data.db.projection.GameWinRateRow
 import com.boardgamenation.tracker.data.db.projection.LabelledValue
+import com.boardgamenation.tracker.data.db.projection.PersonalBestRow
 import com.boardgamenation.tracker.data.db.projection.SessionListItem
 import com.boardgamenation.tracker.data.repository.PlayerRepository
 import com.boardgamenation.tracker.data.repository.SessionFilter
 import com.boardgamenation.tracker.data.repository.SessionRepository
 import com.boardgamenation.tracker.data.repository.StatsRepository
 import com.boardgamenation.tracker.ui.components.HorizontalBarChart
+import com.boardgamenation.tracker.ui.components.KeyValueRow
 import com.boardgamenation.tracker.ui.components.SectionHeader
 import com.boardgamenation.tracker.ui.components.StatTile
 import com.boardgamenation.tracker.ui.components.currentLocale
 import com.boardgamenation.tracker.ui.navigation.Route
 import com.boardgamenation.tracker.ui.sessions.SessionRow
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.SharingStarted
@@ -53,6 +57,7 @@ data class PlayerDetailState(
     val player: PlayerEntity? = null,
     val winRateByGame: List<GameWinRateRow> = emptyList(),
     val averageScores: List<LabelledValue> = emptyList(),
+    val personalBests: List<PersonalBestRow> = emptyList(),
     val sessions: List<SessionListItem> = emptyList(),
     val plays: Int = 0,
     val wins: Int = 0
@@ -68,22 +73,33 @@ class PlayerDetailViewModel @Inject constructor(
 
     private val playerId: Long = savedStateHandle.toRoute<Route.PlayerDetail>().playerId
 
-    val state: StateFlow<PlayerDetailState> = combine(
+    /**
+     * Everything the profile says about the player's record. Split from the session list
+     * only because `combine` takes five flows at a time and this is six.
+     */
+    private val record = combine(
         playerRepository.observePlayer(playerId),
         statsRepository.winRateByGame(playerId),
         statsRepository.averageScoreByGame(playerId),
-        sessionRepository.observeSessions(SessionFilter(playerId = playerId)),
+        statsRepository.personalBestByGame(playerId),
         statsRepository.standings()
-    ) { player, winRates, scores, sessions, standings ->
+    ) { player, winRates, scores, bests, standings ->
         val standing = standings.firstOrNull { it.playerId == playerId }
         PlayerDetailState(
             player = player,
             winRateByGame = winRates,
             averageScores = scores,
-            sessions = sessions,
+            personalBests = bests,
             plays = standing?.plays ?: 0,
             wins = standing?.wins ?: 0
         )
+    }
+
+    val state: StateFlow<PlayerDetailState> = combine(
+        record,
+        sessionRepository.observeSessions(SessionFilter(playerId = playerId))
+    ) { state, sessions ->
+        state.copy(sessions = sessions)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlayerDetailState())
 }
 
@@ -167,6 +183,34 @@ fun PlayerDetailScreen(onBack: () -> Unit, onOpenSession: (Long) -> Unit, viewMo
                 }
             }
 
+            item { SectionHeader(stringResource(R.string.stats_personal_best)) }
+            if (state.personalBests.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.stats_no_data),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                    )
+                }
+            } else {
+                items(state.personalBests.size, key = { state.personalBests[it].gameId }) { index ->
+                    val best = state.personalBests[index]
+                    KeyValueRow(
+                        label = best.title,
+                        value = stringResource(
+                            if (best.highScoreWins) {
+                                R.string.stats_personal_best_value
+                            } else {
+                                R.string.stats_personal_best_value_low_wins
+                            },
+                            formatScore(best.bestScore, locale),
+                            best.plays
+                        )
+                    )
+                }
+            }
+
             item { SectionHeader(stringResource(R.string.sessions_title)) }
             items(state.sessions.size, key = { state.sessions[it].id }) { index ->
                 SessionRow(
@@ -177,4 +221,15 @@ fun PlayerDetailScreen(onBack: () -> Unit, onOpenSession: (Long) -> Unit, viewMo
             }
         }
     }
+}
+
+/**
+ * A score as it was entered. Whole numbers lose the decimal point -- most games are
+ * scored in whole points and "92.0" reads as a measurement rather than a score -- and
+ * anything else keeps one place, which is as fine as the app lets a score be entered.
+ */
+private fun formatScore(score: Double, locale: Locale): String = if (score % 1.0 == 0.0) {
+    score.toLong().toString()
+} else {
+    String.format(locale, "%.1f", score)
 }

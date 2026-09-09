@@ -9,6 +9,7 @@ import com.boardgamenation.tracker.data.db.projection.FirstPlayerRecord
 import com.boardgamenation.tracker.data.db.projection.GameWinRateRow
 import com.boardgamenation.tracker.data.db.projection.HeadToHeadRow
 import com.boardgamenation.tracker.data.db.projection.LabelledValue
+import com.boardgamenation.tracker.data.db.projection.PersonalBestRow
 import com.boardgamenation.tracker.data.db.projection.PlayerStandingRow
 import com.boardgamenation.tracker.data.db.projection.SessionListItem
 import com.boardgamenation.tracker.domain.model.TagKind
@@ -104,4 +105,6 @@ class StatsRepository @Inject constructor(private val statsDao: StatsDao, privat
     fun winRateByGame(playerId: Long): Flow<List<GameWinRateRow>> = statsDao.observeWinRateByGame(playerId)
 
     fun averageScoreByGame(playerId: Long, limit: Int = 10): Flow<List<LabelledValue>> = statsDao.observeAverageScoreByGame(playerId, limit)
+
+    fun personalBestByGame(playerId: Long): Flow<List<PersonalBestRow>> = statsDao.observePersonalBestByGame(playerId)
 }
