@@ -41,7 +41,8 @@ class ShareCardRendererTest {
         faction: String? = null,
         team: String? = null,
         isWinner: Boolean = false,
-        isNewPlayer: Boolean = false
+        isNewPlayer: Boolean = false,
+        isPersonalBest: Boolean = false
     ) = ShareStanding(
         rank = rank,
         name = name,
@@ -49,7 +50,8 @@ class ShareCardRendererTest {
         team = team,
         score = score,
         isWinner = isWinner,
-        isNewPlayer = isNewPlayer
+        isNewPlayer = isNewPlayer,
+        isPersonalBest = isPersonalBest
     )
 
     private fun card(
@@ -380,6 +382,88 @@ class ShareCardRendererTest {
                         isNewPlayer = true
                     ),
                     standing("Hafiz", rank = 2, score = 71.0, isNewPlayer = true)
+                )
+            )
+        )
+
+        assertEquals(1080, bitmap.width)
+        assertTrue(distinctColours(bitmap) > 20)
+    }
+
+    /**
+     * Same bar the first-play tag is held to: the point of the label is that the row
+     * reads differently, which a blank bitmap cannot fake.
+     */
+    @Test
+    fun `a record-setting row does not come out looking like everybody else's`() {
+        val standings = { isBest: Boolean ->
+            listOf(
+                standing("Aina", rank = 1, score = 94.0, isWinner = true),
+                standing("Hafiz", rank = 2, score = 71.0, isPersonalBest = isBest)
+            )
+        }
+
+        val plain = renderer.render(card(standings = standings(false)))
+        val marked = renderer.render(card(standings = standings(true)))
+
+        assertFalse(plain.sameAs(marked))
+    }
+
+    /** A record is a personal one, so the winner's accent is not the thing marking it. */
+    @Test
+    fun `marking a record spends none of the winner's accent`() {
+        val standings = { isBest: Boolean ->
+            listOf(standing("Aina", rank = 1, score = 94.0, isWinner = true, isPersonalBest = isBest))
+        }
+
+        val plain = renderer.render(card(standings = standings(false)))
+        val marked = renderer.render(card(standings = standings(true)))
+
+        assertEquals(goldPixels(plain), goldPixels(marked))
+    }
+
+    /**
+     * The two tags cannot both be true off real data -- a first play has nothing to beat
+     * -- but the row draws them as a list, so a pair has to fit rather than overlap.
+     */
+    @Test
+    fun `a row carrying both tags renders both of them`() {
+        val standings = { tags: Boolean ->
+            listOf(
+                standing(
+                    name = "Hafiz",
+                    rank = 2,
+                    score = 71.0,
+                    isNewPlayer = tags,
+                    isPersonalBest = tags
+                )
+            )
+        }
+
+        val one = renderer.render(
+            card(standings = listOf(standing("Hafiz", rank = 2, score = 71.0, isNewPlayer = true)))
+        )
+        val both = renderer.render(card(standings = standings(true)))
+
+        assertFalse(renderer.render(card(standings = standings(false))).sameAs(both))
+        assertFalse(one.sameAs(both))
+    }
+
+    /** The tag takes room from a row that a long name and a faction already want. */
+    @Test
+    fun `a record-setter whose name fills the row still renders`() {
+        val bitmap = renderer.render(
+            card(
+                standings = listOf(
+                    standing(
+                        name = "A name far longer than any row could hope to hold ".repeat(2),
+                        rank = 1,
+                        score = 1234.5,
+                        faction = "Peregrine Falcon",
+                        isWinner = true,
+                        isPersonalBest = true
+                    ),
+                    standing("Hafiz", rank = 2, score = 71.0, isPersonalBest = true)
                 )
             )
         )
