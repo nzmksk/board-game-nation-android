@@ -6,6 +6,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import com.boardgamenation.tracker.data.db.query.GameQueryBuilder
+import com.boardgamenation.tracker.domain.model.CollectionFilter
+import com.boardgamenation.tracker.domain.model.GameStatus
 import com.boardgamenation.tracker.domain.model.SessionEndCondition
 import com.boardgamenation.tracker.domain.model.TagKind
 import com.boardgamenation.tracker.domain.model.TimerMode
@@ -447,6 +450,137 @@ class MigrationTest {
         assertEquals(58.0, rows.first { it.playerId == 1L }.score!!, 0.0)
     }
 
+    // --- preordered -----------------------------------------------------------------
+
+    /**
+     * A preorder was a game somebody wanted and did not have, which is what the wishlist
+     * already says. Landing on the [GameStatus.OWNED] default instead would have put a
+     * copy that never arrived on the shelf and its price into the collection's value.
+     */
+    @Test
+    fun `a preordered game becomes a wishlist game`() = runTest {
+        seedAt(9) { db ->
+            insertGameV9(db, id = 1, title = "Sky Team", status = "PREORDERED", price = 120.0)
+        }
+
+        val db = openMigrated()
+
+        assertEquals(GameStatus.WISHLIST, db.gameDao().getGame(1)!!.status)
+        assertEquals("the rest of the row is untouched", 120.0, db.gameDao().getGame(1)!!.price!!, 0.0)
+    }
+
+    /**
+     * The rewrite is what puts the game back within reach of the filters. The status
+     * column is filtered on by name, so a row still saying `PREORDERED` would read as a
+     * wishlist game on its own screen while the wishlist filter went on not returning it.
+     */
+    @Test
+    fun `a migrated preorder is found by the wishlist filter`() = runTest {
+        seedAt(9) { db ->
+            insertGameV9(db, id = 1, title = "Sky Team", status = "PREORDERED")
+            insertGameV9(db, id = 2, title = "Catan", status = "OWNED")
+        }
+
+        val db = openMigrated()
+        val wishlist = db.gameDao()
+            .observeCollection(GameQueryBuilder.build(CollectionFilter(statuses = setOf(GameStatus.WISHLIST))))
+            .first()
+
+        assertEquals(listOf("Sky Team"), wishlist.map { it.title })
+    }
+
+    @Test
+    fun `no other status is rewritten on the way past`() = runTest {
+        seedAt(9) { db ->
+            insertGameV9(db, id = 1, title = "Catan", status = "OWNED")
+            insertGameV9(db, id = 2, title = "Nucleum", status = "WISHLIST")
+            insertGameV9(db, id = 3, title = "Root", status = "SOLD")
+            insertGameV9(db, id = 4, title = "Azul", status = "LENT_OUT")
+        }
+
+        val db = openMigrated()
+
+        assertEquals(
+            listOf(GameStatus.OWNED, GameStatus.WISHLIST, GameStatus.SOLD, GameStatus.LENT_OUT),
+            db.gameDao().getAllGames().sortedBy { it.id }.map { it.status }
+        )
+    }
+
+    // --- possession -----------------------------------------------------------------
+
+    /**
+     * The column held no fact the status beside it did not, and only some writes kept
+     * the two agreeing. Dropping it removes a disagreement rather than an answer.
+     */
+    @Test
+    fun `the in-possession column is gone and the collection is not`() = runTest {
+        seedAt(10) { db ->
+            insertGameV10(db, id = 1, title = "Catan", status = "OWNED", inPossession = 1)
+            insertGameV10(db, id = 2, title = "Azul", status = "LENT_OUT", inPossession = 0, lentTo = "Ben")
+        }
+
+        val db = openMigrated()
+
+        assertFalse("in_possession dropped", "in_possession" in columnsOf(db, "games"))
+        assertEquals(
+            listOf("Azul", "Catan"),
+            db.gameDao().getAllGames().map { it.title }.sorted()
+        )
+        assertEquals(GameStatus.LENT_OUT, db.gameDao().getGame(2)!!.status)
+        assertEquals("Ben", db.gameDao().getGame(2)!!.lentTo)
+    }
+
+    /**
+     * The bulk status menu changed the status without touching the flag, so the two
+     * could contradict each other. The status is the reading that survives, because it
+     * is the one the collection screen was already showing.
+     */
+    @Test
+    fun `a game whose flag disagreed with its status keeps the status`() = runTest {
+        seedAt(10) { db ->
+            // Bulk-marked lent out: the status moved, the flag did not.
+            insertGameV10(db, id = 1, title = "Wingspan", status = "LENT_OUT", inPossession = 1)
+            // Bulk-marked owned again: the flag was left behind saying it was still out.
+            insertGameV10(db, id = 2, title = "Root", status = "OWNED", inPossession = 0, lentTo = "Aina")
+        }
+
+        val db = openMigrated()
+
+        assertFalse("no longer on the shelf", db.gameDao().getGame(1)!!.status.inPossession)
+        assertTrue("back on the shelf", db.gameDao().getGame(2)!!.status.inPossession)
+        // The borrower's name is the user's own words, kept where it is and simply
+        // unread now that the status no longer says the game is out.
+        assertEquals("Aina", db.gameDao().getGame(2)!!.lentTo)
+    }
+
+    /** The lending list asks the status now, so a stale flag cannot hide a loan from it. */
+    @Test
+    fun `a loan is still found after the flag is gone`() = runTest {
+        seedAt(10) { db ->
+            insertGameV10(db, id = 1, title = "Azul", status = "LENT_OUT", inPossession = 1, lentTo = "Ben", lentDate = "2026-01-01")
+            insertGameV10(db, id = 2, title = "Catan", status = "OWNED", inPossession = 1)
+        }
+
+        val db = openMigrated()
+
+        assertEquals(listOf("Azul"), db.gameDao().observeLentOut().first().map { it.title })
+    }
+
+    /** The rebuild drops the table, and with it the AUTOINCREMENT counter. */
+    @Test
+    fun `dropping the column does not rewind the autoincrement counter`() = runTest {
+        seedAt(10) { db ->
+            insertGameV10(db, id = 1, title = "Kept", status = "OWNED", inPossession = 1)
+            insertGameV10(db, id = 9, title = "Deleted later", status = "OWNED", inPossession = 1)
+            db.execSQL("DELETE FROM games WHERE id = 9")
+        }
+
+        val db = openMigrated()
+        val newId = db.gameDao().insert(DatabaseTestFixture.game("Brand new"))
+
+        assertTrue("expected an id above 9 but got $newId", newId > 9)
+    }
+
     // --- integrity ------------------------------------------------------------------
 
     @Test
@@ -531,6 +665,30 @@ class MigrationTest {
         INSERT INTO games (id, title, date_added, status, sudden_death_possible,
                            created_at, updated_at)
         VALUES ($id, '$title', '2026-01-01', 'OWNED', $suddenDeathPossible, 0, 0)
+        """.trimIndent()
+    )
+
+    private fun insertGameV10(
+        db: SupportSQLiteDatabase,
+        id: Long,
+        title: String,
+        status: String,
+        inPossession: Int,
+        lentTo: String? = null,
+        lentDate: String? = null
+    ) = db.execSQL(
+        """
+        INSERT INTO games (id, title, date_added, status, in_possession, lent_to, lent_date,
+                           created_at, updated_at)
+        VALUES ($id, '$title', '2026-01-01', '$status', $inPossession,
+                ${lentTo?.let { "'$it'" } ?: "NULL"}, ${lentDate?.let { "'$it'" } ?: "NULL"}, 0, 0)
+        """.trimIndent()
+    )
+
+    private fun insertGameV9(db: SupportSQLiteDatabase, id: Long, title: String, status: String, price: Double? = null) = db.execSQL(
+        """
+        INSERT INTO games (id, title, date_added, status, price, created_at, updated_at)
+        VALUES ($id, '$title', '2026-01-01', '$status', ${price ?: "NULL"}, 0, 0)
         """.trimIndent()
     )
 

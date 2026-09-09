@@ -379,6 +379,152 @@ object Migrations {
     }
 
     /**
+     * Rewrites the games a preorder status was the only home for.
+     *
+     * "Preordered" answered a question about a receipt rather than about a shelf, and it
+     * was the only status that did: everything else says where the copy is. Nothing in
+     * the app ever acted on it -- it did not count toward the collection, it carried no
+     * delivery date, and the only thing that told it apart from a wishlist entry was the
+     * word on the chip -- so it was a fifth thing to choose between with nothing behind
+     * it. The status a game played on somebody else's copy needs is a real gap; this was
+     * not one.
+     *
+     * The rows become `WISHLIST`, which is the same claim the preorder was making: a game
+     * somebody wants and does not have yet. That is a rename of what was already true, not
+     * a new statement about anybody's collection.
+     *
+     * It has to happen here and not only in `GameStatus.fromStorage`, because the column
+     * is filtered on by name. A row left saying `PREORDERED` would be read back as a
+     * wishlist game on the detail screen while the wishlist filter -- which asks SQLite
+     * for `status IN ('WISHLIST')` -- went on not returning it, and the game would sit in
+     * the collection reachable only by scrolling past every filter that should have found
+     * it.
+     *
+     * Nothing about the schema changes: `status` is TEXT with no constraint naming the
+     * statuses, so this is a version bump carrying data across and 10.json is 9.json with
+     * a new number on it.
+     */
+    private val MIGRATION_9_10 = Migration(9, 10) { db ->
+        db.execSQL("UPDATE games SET status = 'WISHLIST' WHERE status = 'PREORDERED'")
+    }
+
+    /**
+     * Drops `in_possession`, which was a second answer to a question the status answers.
+     *
+     * A game is in your possession exactly when it is `OWNED`: lending it is what moves
+     * it to `LENT_OUT`, and a wishlist entry, a sold game or a game played on somebody
+     * else's copy has no copy to possess. The column said so too, but only where
+     * something remembered to write it -- the lend and return queries set it beside the
+     * status, the edit form derived it from the status on save, and the bulk status menu
+     * changed the status alone. A collection bulk-marked as lent out therefore went on
+     * answering the "on the shelf" filter, and one bulk-marked as owned came back
+     * claiming it was still out on loan.
+     *
+     * Nothing is backfilled and nothing needs to be. The column held no fact that the
+     * `status` beside it does not, so dropping it is the removal of a disagreement rather
+     * than the loss of an answer -- and where the two disagreed, the status is the one
+     * the collection screen was already showing.
+     *
+     * `lent_to` and `lent_date` stay as they are, including on the rows whose status no
+     * longer says lent out. They are what somebody typed, they cost nothing to hold, and
+     * the lending section asks the status first, so a stale borrower is unread rather
+     * than shown -- the same treatment [MIGRATION_8_9] gave a reason left on a play that
+     * was no longer specific.
+     *
+     * minSdk 26 ships SQLite 3.18, which predates ALTER TABLE DROP COLUMN (3.35), so
+     * this is the create/copy/drop/rename recipe again, AUTOINCREMENT counter carried
+     * over by hand exactly as in [MIGRATION_8_9].
+     */
+    private val MIGRATION_10_11 = Migration(10, 11) { db ->
+        db.execSQL(
+            "CREATE TEMP TABLE games_seq AS " +
+                "SELECT seq FROM sqlite_sequence WHERE name = 'games'"
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `games_new` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `bgg_id` INTEGER,
+                `title` TEXT NOT NULL,
+                `year_published` INTEGER,
+                `min_players` INTEGER,
+                `max_players` INTEGER,
+                `best_player_count` TEXT,
+                `min_playtime_minutes` INTEGER,
+                `max_playtime_minutes` INTEGER,
+                `weight` REAL,
+                `bgg_rating` REAL,
+                `publisher` TEXT,
+                `thumbnail_path` TEXT,
+                `date_added` TEXT NOT NULL,
+                `price` REAL,
+                `currency` TEXT NOT NULL DEFAULT 'MYR',
+                `purchase_note` TEXT,
+                `status` TEXT NOT NULL,
+                `wishlist_priority` INTEGER,
+                `lent_to` TEXT,
+                `lent_date` TEXT,
+                `is_expansion` INTEGER NOT NULL DEFAULT 0,
+                `base_game_id` INTEGER,
+                `scoring_mode` TEXT NOT NULL DEFAULT 'RANKED_SCORES',
+                `high_score_wins` INTEGER NOT NULL DEFAULT 1,
+                `notes` TEXT,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                FOREIGN KEY(`base_game_id`) REFERENCES `games`(`id`)
+                    ON UPDATE NO ACTION ON DELETE SET NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO `games_new` (
+                `id`, `bgg_id`, `title`, `year_published`, `min_players`, `max_players`,
+                `best_player_count`, `min_playtime_minutes`, `max_playtime_minutes`,
+                `weight`, `bgg_rating`, `publisher`, `thumbnail_path`, `date_added`,
+                `price`, `currency`, `purchase_note`, `status`, `wishlist_priority`,
+                `lent_to`, `lent_date`, `is_expansion`, `base_game_id`,
+                `scoring_mode`, `high_score_wins`, `notes`, `created_at`, `updated_at`
+            )
+            SELECT
+                `id`, `bgg_id`, `title`, `year_published`, `min_players`, `max_players`,
+                `best_player_count`, `min_playtime_minutes`, `max_playtime_minutes`,
+                `weight`, `bgg_rating`, `publisher`, `thumbnail_path`, `date_added`,
+                `price`, `currency`, `purchase_note`, `status`, `wishlist_priority`,
+                `lent_to`, `lent_date`, `is_expansion`, `base_game_id`,
+                `scoring_mode`, `high_score_wins`, `notes`, `created_at`, `updated_at`
+            FROM `games`
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE `games`")
+        db.execSQL("ALTER TABLE `games_new` RENAME TO `games`")
+
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_games_bgg_id` ON `games` (`bgg_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_games_title` ON `games` (`title`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_games_status` ON `games` (`status`)")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_games_base_game_id` ON `games` (`base_game_id`)"
+        )
+
+        db.execSQL(
+            """
+            UPDATE sqlite_sequence
+               SET seq = (SELECT seq FROM games_seq)
+             WHERE name = 'games' AND (SELECT seq FROM games_seq) > seq
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO sqlite_sequence (name, seq)
+            SELECT 'games', (SELECT seq FROM games_seq)
+             WHERE (SELECT seq FROM games_seq) IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'games')
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE games_seq")
+    }
+
+    /**
      * Ordered oldest to newest. Room composes them, so a device three versions behind
      * walks the chain rather than needing a 1-to-4 migration of its own.
      */
@@ -390,6 +536,8 @@ object Migrations {
         MIGRATION_5_6,
         MIGRATION_6_7,
         MIGRATION_7_8,
-        MIGRATION_8_9
+        MIGRATION_8_9,
+        MIGRATION_9_10,
+        MIGRATION_10_11
     )
 }

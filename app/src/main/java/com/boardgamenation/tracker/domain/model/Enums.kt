@@ -4,16 +4,59 @@ package com.boardgamenation.tracker.domain.model
 enum class GameStatus {
     OWNED,
     WISHLIST,
-    PREORDERED,
+
+    /**
+     * Played, but never owned: the copy belonged to a friend, a club or a cafe.
+     *
+     * It earns a place on the shelf because the plays are real. Sessions are logged
+     * against a game, so a night spent on somebody else's copy can only be recorded by
+     * giving that game a row -- and until now the only rows on offer claimed the copy
+     * was bought, wanted, or gone. This one says the game was played and the shelf was
+     * never involved, which is why it stays out of [ownsCopy].
+     */
+    PLAYED_NOT_OWNED,
     SOLD,
     LENT_OUT;
 
-    /** Statuses that count toward collection totals and monetary value. */
-    val countsTowardCollection: Boolean
+    /**
+     * Whether there is a copy of the game on the shelf, whoever is holding it today.
+     *
+     * The collection totals and the collection's monetary value count these and nothing
+     * else -- a wishlist entry is not a purchase, a sold game is not still money sitting
+     * on a shelf, and a game played on somebody else's copy was never bought. It is also
+     * what the lending section asks, because a copy is the thing that can be lent.
+     */
+    val ownsCopy: Boolean
         get() = this == OWNED || this == LENT_OUT
 
+    /**
+     * Whether the copy is in the house rather than out on loan.
+     *
+     * Possession is not a fact of its own. It used to be `games.in_possession`, a column
+     * written beside the status by some paths and left behind by others, and the two
+     * could disagree: the bulk status menu moved a game to [LENT_OUT] without clearing
+     * the flag, so a game the collection said was lent went on answering the "on the
+     * shelf" filter. There is only ever one answer, and the status already is it --
+     * lending a game is what moves it to [LENT_OUT], and everything else on this list
+     * has no copy to possess.
+     */
+    val inPossession: Boolean
+        get() = this == OWNED
+
     companion object {
-        fun fromStorage(value: String?): GameStatus = entries.firstOrNull { it.name == value } ?: OWNED
+
+        /**
+         * "PREORDERED" is what this column said for a game bought but not yet delivered,
+         * and an archive exported while that status existed still says it. A preorder is
+         * a game somebody wants and does not have, which is exactly [WISHLIST], so it
+         * reads back as that rather than falling through to the [OWNED] default -- which
+         * would have put a copy that never arrived on the shelf and its price into the
+         * collection's value.
+         */
+        fun fromStorage(value: String?): GameStatus = when (value) {
+            "PREORDERED" -> WISHLIST
+            else -> entries.firstOrNull { it.name == value } ?: OWNED
+        }
     }
 }
 

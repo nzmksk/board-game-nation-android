@@ -62,8 +62,7 @@ data class GameEntity(
     /** 1 (highest) to 5. Only meaningful while [status] is WISHLIST. */
     @ColumnInfo(name = "wishlist_priority") val wishlistPriority: Int? = null,
 
-    /** False when the physical copy is out of the house. */
-    @ColumnInfo(name = "in_possession", defaultValue = "1") val inPossession: Boolean = true,
+    /** Who has the copy, while [status] is LENT_OUT. */
     @ColumnInfo(name = "lent_to") val lentTo: String? = null,
     @ColumnInfo(name = "lent_date") val lentDate: String? = null,
 

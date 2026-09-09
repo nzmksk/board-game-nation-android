@@ -52,6 +52,7 @@ import com.boardgamenation.tracker.core.time.DurationFormat
 import com.boardgamenation.tracker.data.db.entity.GameEntity
 import com.boardgamenation.tracker.data.db.projection.FactionRecord
 import com.boardgamenation.tracker.data.db.projection.GameAggregates
+import com.boardgamenation.tracker.domain.model.GameStatus
 import com.boardgamenation.tracker.domain.model.TagKind
 import com.boardgamenation.tracker.ui.collection.labelRes
 import com.boardgamenation.tracker.ui.components.FirstPlayerAdvantage
@@ -257,7 +258,9 @@ fun GameDetailScreen(
                 }
             }
 
-            item { LendSection(game, state, onLend = { lendDialogOpen = true }, onReturn = viewModel::markReturned) }
+            if (game.status.ownsCopy) {
+                item { LendSection(game, state, onLend = { lendDialogOpen = true }, onReturn = viewModel::markReturned) }
+            }
         }
     }
 
@@ -371,7 +374,7 @@ private fun HeaderCard(game: GameEntity, state: GameDetailUiState) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (state.daysOnLoan != null && !game.inPossession) {
+            if (state.daysOnLoan != null && game.status == GameStatus.LENT_OUT) {
                 Text(
                     text = pluralStringResource(
                         R.plurals.game_detail_lent_since,
@@ -585,6 +588,12 @@ private fun MetadataSection(game: GameEntity, designers: List<String>) {
     }
 }
 
+/**
+ * Only shown for a game there is a copy of. A wishlist entry or a game played on
+ * somebody else's copy has nothing to lend, and offering the button anyway would have
+ * been the one place in the app that let a game be marked as out on loan without ever
+ * having been in.
+ */
 @Composable
 private fun LendSection(game: GameEntity, state: GameDetailUiState, onLend: () -> Unit, onReturn: () -> Unit) {
     HorizontalDivider(Modifier.padding(vertical = 8.dp))
@@ -595,14 +604,18 @@ private fun LendSection(game: GameEntity, state: GameDetailUiState, onLend: () -
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            if (game.inPossession) {
+            if (game.status.inPossession) {
                 Text(
-                    text = stringResource(R.string.collection_filter_in_possession),
+                    text = stringResource(R.string.game_detail_on_the_shelf),
                     style = MaterialTheme.typography.bodyMedium
                 )
             } else {
                 Text(
-                    text = stringResource(R.string.game_detail_lent_to, game.lentTo.orEmpty()),
+                    // The borrower's name is not guaranteed: the bulk status menu can
+                    // move a game to lent-out without asking who has it.
+                    text = game.lentTo
+                        ?.let { stringResource(R.string.game_detail_lent_to, it) }
+                        ?: stringResource(R.string.status_lent_out),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 state.daysOnLoan?.let {
@@ -614,7 +627,7 @@ private fun LendSection(game: GameEntity, state: GameDetailUiState, onLend: () -
                 }
             }
         }
-        if (game.inPossession) {
+        if (game.status.inPossession) {
             OutlinedButton(onClick = onLend) { Text(stringResource(R.string.game_detail_lend)) }
         } else {
             OutlinedButton(onClick = onReturn) { Text(stringResource(R.string.game_detail_return)) }

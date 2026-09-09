@@ -39,7 +39,6 @@ data class CollectionFilter(
 
     /** null means "don't care"; true only rated, false only unrated. */
     val rated: Boolean? = null,
-    val inPossessionOnly: Boolean = false,
     val includeExpansions: Boolean = true,
 
     val sort: CollectionSort = CollectionSort.TITLE,
@@ -48,7 +47,7 @@ data class CollectionFilter(
     val isActive: Boolean
         get() = search.isNotBlank() || statuses.isNotEmpty() || playerCount != null ||
             playtime != null || tagIds.isNotEmpty() || rated != null ||
-            inPossessionOnly || !includeExpansions
+            !includeExpansions
 
     /** How many chips are lit, for the "clear filters" affordance. */
     val activeCount: Int
@@ -58,7 +57,6 @@ data class CollectionFilter(
             playtime != null,
             tagIds.isNotEmpty(),
             rated != null,
-            inPossessionOnly,
             !includeExpansions
         ).count { it }
 }

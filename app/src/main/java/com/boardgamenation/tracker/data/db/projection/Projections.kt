@@ -23,7 +23,6 @@ data class GameListItem(
     @ColumnInfo(name = "weight") val weight: Double?,
     @ColumnInfo(name = "price") val price: Double?,
     @ColumnInfo(name = "currency") val currency: String,
-    @ColumnInfo(name = "in_possession") val inPossession: Boolean,
     @ColumnInfo(name = "is_expansion") val isExpansion: Boolean,
     @ColumnInfo(name = "wishlist_priority") val wishlistPriority: Int?,
     @ColumnInfo(name = "date_added") val dateAdded: String,

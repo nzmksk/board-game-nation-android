@@ -211,7 +211,6 @@ fun CollectionScreen(onOpenGame: (Long) -> Unit, onAddGame: () -> Unit, viewMode
                 onPlaytime = viewModel::setPlaytime,
                 onToggleTag = viewModel::toggleTag,
                 onRated = viewModel::setRated,
-                onInPossession = viewModel::toggleInPossession,
                 onExpansions = viewModel::toggleExpansions,
                 onClear = viewModel::clearFilters
             )
@@ -411,7 +410,6 @@ private fun FilterChipRow(
     onPlaytime: (PlaytimeBucket?) -> Unit,
     onToggleTag: (Long) -> Unit,
     onRated: (Boolean?) -> Unit,
-    onInPossession: () -> Unit,
     onExpansions: () -> Unit,
     onClear: () -> Unit
 ) {
@@ -467,11 +465,6 @@ private fun FilterChipRow(
             selected = state.filter.rated == false,
             onClick = { onRated(false) },
             label = { Text(stringResource(R.string.collection_filter_unrated)) }
-        )
-        FilterChip(
-            selected = state.filter.inPossessionOnly,
-            onClick = onInPossession,
-            label = { Text(stringResource(R.string.collection_filter_in_possession)) }
         )
         FilterChip(
             selected = !state.filter.includeExpansions,
@@ -687,7 +680,7 @@ private fun GameListItem.subtitle(): String {
 internal fun GameStatus.labelRes(): Int = when (this) {
     GameStatus.OWNED -> R.string.status_owned
     GameStatus.WISHLIST -> R.string.status_wishlist
-    GameStatus.PREORDERED -> R.string.status_preordered
+    GameStatus.PLAYED_NOT_OWNED -> R.string.status_played_not_owned
     GameStatus.SOLD -> R.string.status_sold
     GameStatus.LENT_OUT -> R.string.status_lent_out
 }

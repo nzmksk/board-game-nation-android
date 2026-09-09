@@ -136,7 +136,7 @@ interface GameDao {
     @Query(
         """
         SELECT * FROM games
-        WHERE in_possession = 0 AND lent_date IS NOT NULL
+        WHERE status = 'LENT_OUT' AND lent_date IS NOT NULL
         ORDER BY lent_date ASC
         """
     )
@@ -149,7 +149,7 @@ interface GameDao {
     @Query(
         """
         SELECT * FROM games
-        WHERE in_possession = 0 AND lent_date IS NOT NULL AND lent_date <= :cutoffIsoDate
+        WHERE status = 'LENT_OUT' AND lent_date IS NOT NULL AND lent_date <= :cutoffIsoDate
         ORDER BY lent_date ASC
         """
     )
@@ -179,7 +179,7 @@ interface GameDao {
     @Query(
         """
         UPDATE games
-        SET in_possession = 0, lent_to = :person, lent_date = :isoDate,
+        SET lent_to = :person, lent_date = :isoDate,
             status = 'LENT_OUT', updated_at = :now
         WHERE id = :gameId
         """
@@ -189,7 +189,7 @@ interface GameDao {
     @Query(
         """
         UPDATE games
-        SET in_possession = 1, lent_to = NULL, lent_date = NULL,
+        SET lent_to = NULL, lent_date = NULL,
             status = 'OWNED', updated_at = :now
         WHERE id = :gameId
         """

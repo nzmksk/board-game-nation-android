@@ -272,7 +272,6 @@ class CsvImporter @Inject constructor(
                     purchaseNote = row.string("purchase_note"),
                     status = GameStatus.fromStorage(row.string("status")),
                     wishlistPriority = row.int("wishlist_priority"),
-                    inPossession = row.boolean("in_possession", default = true),
                     lentTo = row.string("lent_to"),
                     lentDate = row.string("lent_date"),
                     isExpansion = row.boolean("is_expansion"),

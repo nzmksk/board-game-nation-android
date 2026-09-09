@@ -184,7 +184,7 @@ class DevFixtures @Inject constructor(
         val now = clock.nowMillis()
         val today = clock.today()
         val playable = gameIds.mapNotNull { gameDao.getGame(it) }
-            .filter { !it.isExpansion && it.status.countsTowardCollection }
+            .filter { !it.isExpansion && it.status.ownsCopy }
         if (playable.isEmpty()) return 0
 
         // A long tail: a handful of favourites carry most of the plays, which is what
@@ -620,7 +620,7 @@ class DevFixtures @Inject constructor(
             GameSpec(
                 "Sky Team", 2023, 2, 2, "2", 15, 20, 2.0, 120.0, "Luc Remond", "Le Scorpion Masque",
                 listOf("Dice Placement", "Team Play"), listOf("Aviation"),
-                scoring = ScoringMode.COOPERATIVE, status = GameStatus.PREORDERED
+                scoring = ScoringMode.COOPERATIVE, status = GameStatus.PLAYED_NOT_OWNED
             )
         )
     }
