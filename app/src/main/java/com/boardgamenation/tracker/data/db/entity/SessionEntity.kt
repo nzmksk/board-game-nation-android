@@ -25,7 +25,8 @@ import com.boardgamenation.tracker.domain.model.SessionEndCondition
     indices = [
         Index(value = ["game_id"]),
         Index(value = ["played_on"]),
-        Index(value = ["is_draft"])
+        Index(value = ["is_draft"]),
+        Index(value = ["is_invalid"])
     ]
 )
 data class SessionEntity(
@@ -90,6 +91,22 @@ data class SessionEntity(
 
     /** Someone was learning, which skews duration. Flagged separately in stats. */
     @ColumnInfo(name = "is_teaching_game", defaultValue = "0") val isTeachingGame: Boolean = false,
+
+    /**
+     * The play did not count: the table set the game up wrongly, or played a rule
+     * wrongly, and only found out afterwards.
+     *
+     * Emphatically not [isIncomplete]. An abandoned play is a real play of the real
+     * game that stopped early, and it still says how long the game runs and how often
+     * the table gives up on it. A play of the wrong game says nothing about anything,
+     * so every statistic drops it entirely -- the same treatment [isDraft] gets, and
+     * for the same reason.
+     *
+     * It stays in the log rather than being deleted. What happened that evening
+     * happened, the flag is one tap to undo when the rule turns out to have been right
+     * after all, and a user who wanted the row gone has always had delete.
+     */
+    @ColumnInfo(name = "is_invalid", defaultValue = "0") val isInvalid: Boolean = false,
 
     /**
      * A session created by the timer but not yet saved by the user. Drafts are hidden

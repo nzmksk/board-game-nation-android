@@ -599,6 +599,24 @@ object Migrations {
     }
 
     /**
+     * Lets a play be marked as one that did not count, because the table played it
+     * wrongly.
+     *
+     * Additive and defaulted to 0, which is the truth about every row already there: a
+     * play nobody has flagged is a play that counted. Nothing is backfilled, because
+     * only the user knows which evening was played with the rules misread, and guessing
+     * would quietly delete real history from their statistics.
+     *
+     * Indexed for the same reason `is_draft` is. Every statistic in the app now filters
+     * on this column, in SQL, and an index the query planner can use is worth more than
+     * the row it costs.
+     */
+    private val MIGRATION_13_14 = Migration(13, 14) { db ->
+        db.execSQL("ALTER TABLE sessions ADD COLUMN is_invalid INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_sessions_is_invalid` ON `sessions` (`is_invalid`)")
+    }
+
+    /**
      * Ordered oldest to newest. Room composes them, so a device three versions behind
      * walks the chain rather than needing a 1-to-4 migration of its own.
      */
@@ -614,6 +632,7 @@ object Migrations {
         MIGRATION_9_10,
         MIGRATION_10_11,
         MIGRATION_11_12,
-        MIGRATION_12_13
+        MIGRATION_12_13,
+        MIGRATION_13_14
     )
 }
