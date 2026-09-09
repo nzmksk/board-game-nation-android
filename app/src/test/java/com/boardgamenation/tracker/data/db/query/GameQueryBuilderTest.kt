@@ -30,7 +30,7 @@ class GameQueryBuilderTest {
 
     @Test
     fun `a filtered query appends a where clause`() {
-        val query = GameQueryBuilder.build(CollectionFilter(inPossessionOnly = true))
+        val query = GameQueryBuilder.build(CollectionFilter(statuses = setOf(GameStatus.OWNED)))
         assertTrue(query.appendedClause().contains("WHERE"))
     }
 
@@ -156,11 +156,11 @@ class GameQueryBuilderTest {
                 search = "a",
                 statuses = setOf(GameStatus.OWNED),
                 playerCount = 2,
-                inPossessionOnly = true
+                includeExpansions = false
             )
         )
         // One for the search term, one for the status, two for the player count; the
-        // in-possession flag is a literal.
+        // expansion flag is a literal.
         assertEquals(4, query.argCount)
     }
 
@@ -172,7 +172,7 @@ class GameQueryBuilderTest {
         val filter = CollectionFilter(
             statuses = setOf(GameStatus.OWNED),
             playerCount = 4,
-            inPossessionOnly = true
+            includeExpansions = false
         )
         assertEquals(3, filter.activeCount)
         assertTrue(filter.isActive)

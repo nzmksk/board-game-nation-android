@@ -112,10 +112,6 @@ class CollectionViewModel @Inject constructor(
         )
     }
 
-    fun toggleInPossession() {
-        filter.value = filter.value.copy(inPossessionOnly = !filter.value.inPossessionOnly)
-    }
-
     fun toggleExpansions() {
         filter.value = filter.value.copy(includeExpansions = !filter.value.includeExpansions)
     }

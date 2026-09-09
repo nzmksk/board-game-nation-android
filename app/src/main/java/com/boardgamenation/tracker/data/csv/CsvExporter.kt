@@ -153,7 +153,7 @@ class CsvExporter @Inject constructor(
                         g.publisher, g.thumbnailPath, g.dateAdded,
                         Csv.formatDouble(g.price), g.currency, g.purchaseNote,
                         g.status.name, Csv.formatInt(g.wishlistPriority),
-                        Csv.formatBool(g.inPossession), g.lentTo, g.lentDate,
+                        g.lentTo, g.lentDate,
                         Csv.formatBool(g.isExpansion), Csv.formatLong(g.baseGameId),
                         g.scoringMode.name, Csv.formatBool(g.highScoreWins), g.notes,
                         g.createdAt.toString(), g.updatedAt.toString()

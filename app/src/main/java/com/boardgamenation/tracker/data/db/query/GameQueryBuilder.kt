@@ -22,7 +22,7 @@ object GameQueryBuilder {
         SELECT
             g.id, g.title, g.year_published, g.thumbnail_path, g.status,
             g.min_players, g.max_players, g.min_playtime_minutes, g.max_playtime_minutes,
-            g.weight, g.price, g.currency, g.in_possession, g.is_expansion,
+            g.weight, g.price, g.currency, g.is_expansion,
             g.wishlist_priority, g.date_added, g.lent_to, g.lent_date,
             COALESCE(pc.play_count, 0) AS play_count,
             pc.last_played AS last_played,
@@ -84,7 +84,6 @@ object GameQueryBuilder {
             null -> Unit
         }
 
-        if (filter.inPossessionOnly) where += "g.in_possession = 1"
         if (!filter.includeExpansions) where += "g.is_expansion = 0"
 
         val sql = buildString {

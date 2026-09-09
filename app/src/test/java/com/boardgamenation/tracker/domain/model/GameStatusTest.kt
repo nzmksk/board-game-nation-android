@@ -2,6 +2,7 @@ package com.boardgamenation.tracker.domain.model
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -15,15 +16,32 @@ class GameStatusTest {
 
     @Test
     fun `a game played on somebody else's copy is not part of the collection`() {
-        assertFalse(GameStatus.PLAYED_NOT_OWNED.countsTowardCollection)
+        assertFalse(GameStatus.PLAYED_NOT_OWNED.ownsCopy)
     }
 
     @Test
     fun `only the statuses with a copy on the shelf count toward the collection`() {
         assertEquals(
             listOf(GameStatus.OWNED, GameStatus.LENT_OUT),
-            GameStatus.entries.filter { it.countsTowardCollection }
+            GameStatus.entries.filter { it.ownsCopy }
         )
+    }
+
+    /**
+     * The narrower of the two: a lent-out game is a copy somebody owns and does not
+     * currently have. Everything else on the list has no copy to be holding.
+     */
+    @Test
+    fun `only an owned game is in possession`() {
+        assertEquals(
+            listOf(GameStatus.OWNED),
+            GameStatus.entries.filter { it.inPossession }
+        )
+    }
+
+    @Test
+    fun `a game in possession is always a game with a copy`() {
+        assertTrue(GameStatus.entries.filter { it.inPossession }.all { it.ownsCopy })
     }
 
     @Test

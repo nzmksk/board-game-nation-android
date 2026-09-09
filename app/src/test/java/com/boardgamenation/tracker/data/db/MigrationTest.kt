@@ -506,6 +506,81 @@ class MigrationTest {
         )
     }
 
+    // --- possession -----------------------------------------------------------------
+
+    /**
+     * The column held no fact the status beside it did not, and only some writes kept
+     * the two agreeing. Dropping it removes a disagreement rather than an answer.
+     */
+    @Test
+    fun `the in-possession column is gone and the collection is not`() = runTest {
+        seedAt(10) { db ->
+            insertGameV10(db, id = 1, title = "Catan", status = "OWNED", inPossession = 1)
+            insertGameV10(db, id = 2, title = "Azul", status = "LENT_OUT", inPossession = 0, lentTo = "Ben")
+        }
+
+        val db = openMigrated()
+
+        assertFalse("in_possession dropped", "in_possession" in columnsOf(db, "games"))
+        assertEquals(
+            listOf("Azul", "Catan"),
+            db.gameDao().getAllGames().map { it.title }.sorted()
+        )
+        assertEquals(GameStatus.LENT_OUT, db.gameDao().getGame(2)!!.status)
+        assertEquals("Ben", db.gameDao().getGame(2)!!.lentTo)
+    }
+
+    /**
+     * The bulk status menu changed the status without touching the flag, so the two
+     * could contradict each other. The status is the reading that survives, because it
+     * is the one the collection screen was already showing.
+     */
+    @Test
+    fun `a game whose flag disagreed with its status keeps the status`() = runTest {
+        seedAt(10) { db ->
+            // Bulk-marked lent out: the status moved, the flag did not.
+            insertGameV10(db, id = 1, title = "Wingspan", status = "LENT_OUT", inPossession = 1)
+            // Bulk-marked owned again: the flag was left behind saying it was still out.
+            insertGameV10(db, id = 2, title = "Root", status = "OWNED", inPossession = 0, lentTo = "Aina")
+        }
+
+        val db = openMigrated()
+
+        assertFalse("no longer on the shelf", db.gameDao().getGame(1)!!.status.inPossession)
+        assertTrue("back on the shelf", db.gameDao().getGame(2)!!.status.inPossession)
+        // The borrower's name is the user's own words, kept where it is and simply
+        // unread now that the status no longer says the game is out.
+        assertEquals("Aina", db.gameDao().getGame(2)!!.lentTo)
+    }
+
+    /** The lending list asks the status now, so a stale flag cannot hide a loan from it. */
+    @Test
+    fun `a loan is still found after the flag is gone`() = runTest {
+        seedAt(10) { db ->
+            insertGameV10(db, id = 1, title = "Azul", status = "LENT_OUT", inPossession = 1, lentTo = "Ben", lentDate = "2026-01-01")
+            insertGameV10(db, id = 2, title = "Catan", status = "OWNED", inPossession = 1)
+        }
+
+        val db = openMigrated()
+
+        assertEquals(listOf("Azul"), db.gameDao().observeLentOut().first().map { it.title })
+    }
+
+    /** The rebuild drops the table, and with it the AUTOINCREMENT counter. */
+    @Test
+    fun `dropping the column does not rewind the autoincrement counter`() = runTest {
+        seedAt(10) { db ->
+            insertGameV10(db, id = 1, title = "Kept", status = "OWNED", inPossession = 1)
+            insertGameV10(db, id = 9, title = "Deleted later", status = "OWNED", inPossession = 1)
+            db.execSQL("DELETE FROM games WHERE id = 9")
+        }
+
+        val db = openMigrated()
+        val newId = db.gameDao().insert(DatabaseTestFixture.game("Brand new"))
+
+        assertTrue("expected an id above 9 but got $newId", newId > 9)
+    }
+
     // --- integrity ------------------------------------------------------------------
 
     @Test
@@ -590,6 +665,23 @@ class MigrationTest {
         INSERT INTO games (id, title, date_added, status, sudden_death_possible,
                            created_at, updated_at)
         VALUES ($id, '$title', '2026-01-01', 'OWNED', $suddenDeathPossible, 0, 0)
+        """.trimIndent()
+    )
+
+    private fun insertGameV10(
+        db: SupportSQLiteDatabase,
+        id: Long,
+        title: String,
+        status: String,
+        inPossession: Int,
+        lentTo: String? = null,
+        lentDate: String? = null
+    ) = db.execSQL(
+        """
+        INSERT INTO games (id, title, date_added, status, in_possession, lent_to, lent_date,
+                           created_at, updated_at)
+        VALUES ($id, '$title', '2026-01-01', '$status', $inPossession,
+                ${lentTo?.let { "'$it'" } ?: "NULL"}, ${lentDate?.let { "'$it'" } ?: "NULL"}, 0, 0)
         """.trimIndent()
     )
 

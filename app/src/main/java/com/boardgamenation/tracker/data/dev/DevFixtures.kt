@@ -184,7 +184,7 @@ class DevFixtures @Inject constructor(
         val now = clock.nowMillis()
         val today = clock.today()
         val playable = gameIds.mapNotNull { gameDao.getGame(it) }
-            .filter { !it.isExpansion && it.status.countsTowardCollection }
+            .filter { !it.isExpansion && it.status.ownsCopy }
         if (playable.isEmpty()) return 0
 
         // A long tail: a handful of favourites carry most of the plays, which is what

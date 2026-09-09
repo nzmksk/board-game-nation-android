@@ -70,7 +70,6 @@
     <string name="collection_filter_category">Category</string>
     <string name="collection_filter_rated">Rated</string>
     <string name="collection_filter_unrated">Unrated</string>
-    <string name="collection_filter_in_possession">On the shelf</string>
     <string name="collection_filter_hide_expansions">Hide expansions</string>
     <string name="collection_filter_clear">Clear filters (%1$d)</string>
     <string name="collection_sort_title">Title</string>
@@ -122,6 +121,7 @@
     <string name="game_detail_purchase">Purchase</string>
     <string name="game_detail_log_play">Log a play</string>
     <string name="game_detail_start_timer">Start timer</string>
+    <string name="game_detail_on_the_shelf">On the shelf</string>
     <string name="game_detail_lend">Lend out</string>
     <string name="game_detail_return">Mark returned</string>
     <string name="game_detail_lent_to">Lent to %1$s</string>

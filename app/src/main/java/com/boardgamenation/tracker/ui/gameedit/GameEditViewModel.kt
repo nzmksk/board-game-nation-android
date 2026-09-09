@@ -188,7 +188,6 @@ class GameEditViewModel @Inject constructor(
                 status = current.status,
                 wishlistPriority = current.wishlistPriority
                     .takeIf { current.status == GameStatus.WISHLIST },
-                inPossession = current.status != GameStatus.LENT_OUT,
                 isExpansion = current.isExpansion,
                 baseGameId = current.baseGameId.takeIf { current.isExpansion },
                 scoringMode = current.scoringMode,

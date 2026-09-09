@@ -300,13 +300,14 @@ class GameDaoTest {
         gameDao.markLent(gameId, "Ben", "2026-01-01", DatabaseTestFixture.NOW)
 
         val lent = gameDao.getGame(gameId)!!
-        assertTrue(!lent.inPossession)
-        assertEquals("Ben", lent.lentTo)
         assertEquals(GameStatus.LENT_OUT, lent.status)
+        assertTrue(!lent.status.inPossession)
+        assertEquals("Ben", lent.lentTo)
 
         gameDao.markReturned(gameId, DatabaseTestFixture.NOW)
         val returned = gameDao.getGame(gameId)!!
-        assertTrue(returned.inPossession)
+        assertEquals(GameStatus.OWNED, returned.status)
+        assertTrue(returned.status.inPossession)
         assertNull(returned.lentTo)
     }
 
