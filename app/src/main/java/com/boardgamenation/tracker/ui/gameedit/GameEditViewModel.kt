@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.boardgamenation.tracker.core.time.AppClock
 import com.boardgamenation.tracker.core.time.DateUtils
+import com.boardgamenation.tracker.data.db.entity.GameCostEntity
 import com.boardgamenation.tracker.data.db.entity.GameEntity
 import com.boardgamenation.tracker.data.prefs.SettingsRepository
 import com.boardgamenation.tracker.data.repository.GameRepository
@@ -20,6 +21,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+
+/**
+ * One "other cost" line while it is being typed. The amount is a string for the same
+ * reason every other number on this form is one.
+ */
+data class CostLine(val label: String = "", val amount: String = "")
 
 /**
  * The edit form as plain text fields.
@@ -44,6 +51,7 @@ data class GameEditState(
     val price: String = "",
     val currency: String = "MYR",
     val purchaseNote: String = "",
+    val otherCosts: List<CostLine> = emptyList(),
     val status: GameStatus = GameStatus.OWNED,
     val wishlistPriority: Int? = null,
     val isExpansion: Boolean = false,
@@ -60,6 +68,16 @@ data class GameEditState(
     val titleError: Boolean = false
 ) {
     val canSave: Boolean get() = title.isNotBlank() && !isSaving
+
+    /**
+     * The cost lines worth storing. A line is what it is called: an amount typed against
+     * no label is not a cost anybody could read back later, and a line left empty is the
+     * add button pressed one time too many. Both are dropped, and both are visibly empty
+     * on the form before save, so nothing disappears that was not already blank on screen.
+     */
+    fun costEntities(): List<GameCostEntity> = otherCosts
+        .filter { it.label.isNotBlank() }
+        .map { GameCostEntity(gameId = id, label = it.label.trim(), amount = it.amount.toDoubleOrNull() ?: 0.0) }
 }
 
 @HiltViewModel
@@ -93,6 +111,7 @@ class GameEditViewModel @Inject constructor(
             } else {
                 val game = gameRepository.getGame(gameId)
                 val tags = gameRepository.observeTags(gameId).first()
+                val costs = gameRepository.getCosts(gameId)
                 if (game != null) {
                     _state.value = GameEditState(
                         id = game.id,
@@ -110,6 +129,7 @@ class GameEditViewModel @Inject constructor(
                         price = game.price?.toString().orEmpty(),
                         currency = game.currency,
                         purchaseNote = game.purchaseNote.orEmpty(),
+                        otherCosts = costs.map { CostLine(it.label, it.amount.toString()) },
                         status = game.status,
                         wishlistPriority = game.wishlistPriority,
                         isExpansion = game.isExpansion,
@@ -152,6 +172,33 @@ class GameEditViewModel @Inject constructor(
         TagKind.CATEGORY -> copy(categories = block(categories))
         TagKind.DESIGNER -> copy(designers = block(designers))
         TagKind.CUSTOM -> this
+    }
+
+    /**
+     * Adds an empty line for the user to fill in, rather than asking for a label in a
+     * dialog first. The form is a list of fields everywhere else and this is one more.
+     */
+    fun addCost() {
+        _state.value = _state.value.copy(otherCosts = _state.value.otherCosts + CostLine())
+    }
+
+    /**
+     * Both edits check the index first. A row that has just been removed can still hand
+     * back one last callback from the list that drew it, and an unchecked index would
+     * turn that into a crash on the way out.
+     */
+    fun updateCost(index: Int, line: CostLine) {
+        val costs = _state.value.otherCosts
+        if (index !in costs.indices) return
+        _state.value = _state.value.copy(
+            otherCosts = costs.mapIndexed { i, existing -> if (i == index) line else existing }
+        )
+    }
+
+    fun removeCost(index: Int) {
+        val costs = _state.value.otherCosts
+        if (index !in costs.indices) return
+        _state.value = _state.value.copy(otherCosts = costs.filterIndexed { i, _ -> i != index })
     }
 
     fun save() {
@@ -208,6 +255,7 @@ class GameEditViewModel @Inject constructor(
                 gameRepository.updateGame(entity, tagIds)
                 current.id
             }
+            gameRepository.replaceCosts(id, current.costEntities())
             _saved.value = id
         }
     }

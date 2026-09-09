@@ -5,6 +5,7 @@ import com.boardgamenation.tracker.core.time.DateUtils
 import com.boardgamenation.tracker.data.db.dao.GameDao
 import com.boardgamenation.tracker.data.db.dao.SessionDao
 import com.boardgamenation.tracker.data.db.dao.TagDao
+import com.boardgamenation.tracker.data.db.entity.GameCostEntity
 import com.boardgamenation.tracker.data.db.entity.GameEntity
 import com.boardgamenation.tracker.data.db.entity.TagEntity
 import com.boardgamenation.tracker.data.db.projection.FactionRecord
@@ -56,6 +57,11 @@ class GameRepository @Inject constructor(
 
     fun observeTags(gameId: Long): Flow<List<TagEntity>> = tagDao.observeForGame(gameId)
 
+    /** What was spent on this game beyond the box: sleeves, an insert, shipping. */
+    fun observeCosts(gameId: Long): Flow<List<GameCostEntity>> = gameDao.observeCosts(gameId)
+
+    suspend fun getCosts(gameId: Long): List<GameCostEntity> = gameDao.getCosts(gameId)
+
     fun observeAllTags(): Flow<List<TagEntity>> = tagDao.observeAll()
 
     fun observeTagsInUse(): Flow<List<TagEntity>> = tagDao.observeInUse()
@@ -96,6 +102,11 @@ class GameRepository @Inject constructor(
     suspend fun updateGame(game: GameEntity, tagIds: List<Long>? = null) {
         gameDao.update(game.copy(updatedAt = clock.nowMillis()))
         tagIds?.let { gameDao.replaceTags(game.id, it) }
+    }
+
+    /** Replaces a game's accessory costs with the list the edit form is holding. */
+    suspend fun replaceCosts(gameId: Long, costs: List<GameCostEntity>) {
+        gameDao.replaceCosts(gameId, costs)
     }
 
     /** Resolves free-text tag names to ids, creating any that are new. */

@@ -12,6 +12,7 @@ import com.boardgamenation.tracker.data.db.dao.RubricDao
 import com.boardgamenation.tracker.data.db.dao.SessionDao
 import com.boardgamenation.tracker.data.db.dao.TagDao
 import com.boardgamenation.tracker.data.db.entity.AchievementUnlockEntity
+import com.boardgamenation.tracker.data.db.entity.GameCostEntity
 import com.boardgamenation.tracker.data.db.entity.GameEntity
 import com.boardgamenation.tracker.data.db.entity.GameRatingEntity
 import com.boardgamenation.tracker.data.db.entity.GameRatingScoreEntity
@@ -180,6 +181,7 @@ class CsvImporter @Inject constructor(
             if (mode == ImportMode.REPLACE) maintenance.wipeUserData()
 
             val gameIds = importGames(files[CsvSchema.GAMES], mode, errors, written)
+            importGameCosts(files[CsvSchema.GAME_COSTS], mode, gameIds, errors, written)
             val tagIds = importTags(files[CsvSchema.TAGS], mode, errors, written)
             importGameTags(files[CsvSchema.GAME_TAGS], gameIds, tagIds, errors, written)
             importLegacyDesigners(files[CsvSchema.GAMES], gameIds, errors)
@@ -329,6 +331,52 @@ class CsvImporter @Inject constructor(
                 errors += CsvError(row.lineNumber, "games: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Accessory costs, hung off the games that were just written.
+     *
+     * A merge replaces a game's whole set rather than appending to it. The lines are a
+     * list the edit form owns as a whole, and importing the same archive twice should
+     * leave one insert on a game, not two. A replace has already wiped the table and
+     * keeps the exported ids, like every other file here.
+     */
+    private suspend fun importGameCosts(
+        text: String?,
+        mode: ImportMode,
+        gameIds: Map<Long, Long>,
+        errors: MutableList<CsvError>,
+        written: MutableMap<String, Int>
+    ) {
+        val table = text?.let { CsvParser.parse(it) } ?: return
+        val byGame = linkedMapOf<Long, MutableList<GameCostEntity>>()
+        table.rows.forEach { row ->
+            try {
+                val gameId = gameIds[row.long("game_id")]
+                if (gameId == null) {
+                    errors += CsvError(row.lineNumber, "game_costs: unknown game, skipped")
+                    return@forEach
+                }
+                byGame.getOrPut(gameId) { mutableListOf() } += GameCostEntity(
+                    id = if (mode == ImportMode.REPLACE) row.long("id") ?: 0L else 0L,
+                    gameId = gameId,
+                    label = row.requireString("label"),
+                    amount = row.double("amount") ?: 0.0,
+                    sortOrder = row.int("sort_order") ?: 0
+                )
+            } catch (e: Exception) {
+                errors += CsvError(row.lineNumber, "game_costs: ${e.message}")
+            }
+        }
+        byGame.forEach { (gameId, costs) ->
+            val ordered = costs.sortedBy { it.sortOrder }
+            if (mode == ImportMode.MERGE) {
+                gameDao.replaceCosts(gameId, ordered)
+            } else {
+                gameDao.insertCosts(ordered)
+            }
+        }
+        written[CsvSchema.GAME_COSTS] = byGame.values.sumOf { it.size }
     }
 
     private suspend fun importTags(

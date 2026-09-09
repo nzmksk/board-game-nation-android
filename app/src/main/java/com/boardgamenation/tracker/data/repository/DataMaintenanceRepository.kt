@@ -67,6 +67,7 @@ class DataMaintenanceRepository @Inject constructor(
     suspend fun tableCounts(): TableCountSummary = withContext(io) {
         TableCountSummary(
             games = gameDao.count(),
+            gameCosts = gameDao.countCosts(),
             tags = tagDao.count(),
             gameTags = tagDao.countLinks(),
             players = playerDao.count(),

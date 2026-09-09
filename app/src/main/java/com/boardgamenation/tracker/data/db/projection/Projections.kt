@@ -211,7 +211,9 @@ data class FirstPlayerRecord(
 data class CostPerPlayRow(
     @ColumnInfo(name = "game_id") val gameId: Long,
     @ColumnInfo(name = "title") val title: String,
-    @ColumnInfo(name = "price") val price: Double,
+
+    /** Price plus accessories, which is what the per-play figure is divided from. */
+    @ColumnInfo(name = "total_cost") val totalCost: Double,
     @ColumnInfo(name = "currency") val currency: String,
     @ColumnInfo(name = "play_count") val playCount: Int,
     @ColumnInfo(name = "cost_per_play") val costPerPlay: Double
@@ -300,6 +302,7 @@ data class NamedTotal(
  */
 data class TableCountSummary(
     val games: Int,
+    val gameCosts: Int,
     val tags: Int,
     val gameTags: Int,
     val players: Int,
@@ -313,7 +316,7 @@ data class TableCountSummary(
     val achievementUnlocks: Int
 ) {
     val total: Int
-        get() = games + tags + gameTags + players + sessions + sessionPlayers +
+        get() = games + gameCosts + tags + gameTags + players + sessions + sessionPlayers +
             sessionExpansions + rubrics + rubricCriteria + gameRatings +
             gameRatingScores + achievementUnlocks
 }

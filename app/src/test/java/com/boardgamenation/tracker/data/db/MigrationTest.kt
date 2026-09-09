@@ -6,6 +6,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import com.boardgamenation.tracker.data.db.entity.GameCostEntity
 import com.boardgamenation.tracker.data.db.query.GameQueryBuilder
 import com.boardgamenation.tracker.domain.model.CollectionFilter
 import com.boardgamenation.tracker.domain.model.GameStatus
@@ -581,6 +582,64 @@ class MigrationTest {
         assertTrue("expected an id above 9 but got $newId", newId > 9)
     }
 
+    // --- accessory costs ----------------------------------------------------------------
+
+    /**
+     * The upgrade adds a table and a view and touches nothing else. A collection that
+     * has never recorded an accessory has to cost exactly what it cost before.
+     */
+    @Test
+    fun `an existing collection keeps its prices and gains empty cost lines`() = runTest {
+        seedAt(11) { db ->
+            insertGameV11(db, id = 1, title = "Wingspan", price = 199.0)
+            insertGameV11(db, id = 2, title = "Azul", price = null)
+        }
+
+        val db = openMigrated()
+
+        assertEquals(199.0, db.gameDao().getGame(1)!!.price!!, 0.001)
+        assertTrue(db.gameDao().getCosts(1).isEmpty())
+        assertEquals(199.0, totalCost(db, gameId = 1)!!, 0.001)
+        assertNull("an unpriced game with no accessories stays unpriced", totalCost(db, gameId = 2))
+    }
+
+    /**
+     * The view is created by the migration rather than by Room, so this is the check
+     * that the hand-written statement produced a working view and not merely one whose
+     * text passed the schema comparison.
+     */
+    @Test
+    fun `accessories added after the upgrade count towards what a game cost`() = runTest {
+        seedAt(11) { db ->
+            insertGameV11(db, id = 1, title = "Gloomhaven", price = 450.0)
+        }
+
+        val db = openMigrated()
+        db.gameDao().replaceCosts(
+            1,
+            listOf(
+                GameCostEntity(gameId = 1, label = "Sleeves", amount = 35.5),
+                GameCostEntity(gameId = 1, label = "Insert", amount = 120.0)
+            )
+        )
+
+        assertEquals(605.5, totalCost(db, gameId = 1)!!, 0.001)
+    }
+
+    /** Deleting the game takes its cost lines with it rather than orphaning them. */
+    @Test
+    fun `cost lines are deleted with the game they belong to`() = runTest {
+        seedAt(11) { db ->
+            insertGameV11(db, id = 1, title = "Root", price = 220.0)
+        }
+
+        val db = openMigrated()
+        db.gameDao().replaceCosts(1, listOf(GameCostEntity(gameId = 1, label = "Sleeves", amount = 20.0)))
+        db.gameDao().deleteByIds(listOf(1))
+
+        assertEquals(0, db.gameDao().countCosts())
+    }
+
     // --- integrity ------------------------------------------------------------------
 
     @Test
@@ -684,6 +743,21 @@ class MigrationTest {
                 ${lentTo?.let { "'$it'" } ?: "NULL"}, ${lentDate?.let { "'$it'" } ?: "NULL"}, 0, 0)
         """.trimIndent()
     )
+
+    private fun insertGameV11(db: SupportSQLiteDatabase, id: Long, title: String, price: Double?) = db.execSQL(
+        """
+        INSERT INTO games (id, title, date_added, status, price, created_at, updated_at)
+        VALUES ($id, '$title', '2026-01-01', 'OWNED', ${price ?: "NULL"}, 0, 0)
+        """.trimIndent()
+    )
+
+    /** Reads the migration-created view directly; nothing else in the test needs a DAO. */
+    private fun totalCost(db: AppDatabase, gameId: Long): Double? = db.openHelper.writableDatabase
+        .query("SELECT total_cost FROM game_costing WHERE game_id = $gameId")
+        .use { cursor ->
+            assertTrue("no costing row for game $gameId", cursor.moveToFirst())
+            if (cursor.isNull(0)) null else cursor.getDouble(0)
+        }
 
     private fun insertGameV9(db: SupportSQLiteDatabase, id: Long, title: String, status: String, price: Double? = null) = db.execSQL(
         """

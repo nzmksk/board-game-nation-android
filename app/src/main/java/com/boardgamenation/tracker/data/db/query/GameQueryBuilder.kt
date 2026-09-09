@@ -13,6 +13,11 @@ import com.boardgamenation.tracker.domain.model.CollectionSort
  * loading the whole collection to sort it, which is exactly what the 500-game/5000-session
  * performance target rules out.
  *
+ * Cost per play divides what the game cost, accessories included, which is why it reads
+ * `game_costing` and not the price column. Sorting by price still sorts by price: that
+ * option says what it does, and the box is a thing somebody may well want to rank by on
+ * its own.
+ *
  * Values are always bound as arguments, never interpolated. The only text ever
  * concatenated into the SQL comes from this file's own constants.
  */
@@ -32,10 +37,11 @@ object GameQueryBuilder {
                 ORDER BY gr.rated_on DESC, gr.id DESC LIMIT 1
             ) AS rating,
             CASE
-                WHEN g.price IS NOT NULL AND COALESCE(pc.play_count, 0) > 0
-                THEN g.price / pc.play_count
+                WHEN cost.total_cost IS NOT NULL AND COALESCE(pc.play_count, 0) > 0
+                THEN cost.total_cost / pc.play_count
             END AS cost_per_play
         FROM games g
+        JOIN game_costing cost ON cost.game_id = g.id
         LEFT JOIN (
             SELECT game_id, COUNT(*) AS play_count, MAX(played_on) AS last_played
             FROM sessions WHERE is_draft = 0 GROUP BY game_id

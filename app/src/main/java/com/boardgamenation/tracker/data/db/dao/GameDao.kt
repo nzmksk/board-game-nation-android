@@ -9,6 +9,7 @@ import androidx.room.RawQuery
 import androidx.room.Transaction
 import androidx.room.Update
 import androidx.sqlite.db.SupportSQLiteQuery
+import com.boardgamenation.tracker.data.db.entity.GameCostEntity
 import com.boardgamenation.tracker.data.db.entity.GameEntity
 import com.boardgamenation.tracker.data.db.entity.GameRatingEntity
 import com.boardgamenation.tracker.data.db.entity.GameTagCrossRef
@@ -30,6 +31,7 @@ interface GameDao {
     @RawQuery(
         observedEntities = [
             GameEntity::class,
+            GameCostEntity::class,
             SessionEntity::class,
             GameRatingEntity::class,
             GameTagCrossRef::class
@@ -222,4 +224,41 @@ interface GameDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTagLinks(links: List<GameTagCrossRef>)
+
+    // --- accessory costs --------------------------------------------------------------
+
+    @Query("SELECT * FROM game_costs WHERE game_id = :gameId ORDER BY sort_order, id")
+    fun observeCosts(gameId: Long): Flow<List<GameCostEntity>>
+
+    @Query("SELECT * FROM game_costs WHERE game_id = :gameId ORDER BY sort_order, id")
+    suspend fun getCosts(gameId: Long): List<GameCostEntity>
+
+    @Query("SELECT * FROM game_costs")
+    suspend fun getAllCosts(): List<GameCostEntity>
+
+    @Query("SELECT COUNT(*) FROM game_costs")
+    suspend fun countCosts(): Int
+
+    /**
+     * Replaces a game's cost lines wholesale, the same way [replaceTags] does. The form
+     * edits the whole list at once, so diffing row by row would only be a way to get the
+     * ordering wrong.
+     */
+    @Transaction
+    suspend fun replaceCosts(gameId: Long, costs: List<GameCostEntity>) {
+        clearCosts(gameId)
+        if (costs.isNotEmpty()) {
+            insertCosts(
+                costs.mapIndexed { index, cost ->
+                    cost.copy(id = 0, gameId = gameId, sortOrder = index)
+                }
+            )
+        }
+    }
+
+    @Query("DELETE FROM game_costs WHERE game_id = :gameId")
+    suspend fun clearCosts(gameId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertCosts(costs: List<GameCostEntity>)
 }

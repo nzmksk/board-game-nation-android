@@ -32,11 +32,18 @@ interface StatsDao {
     @Query("SELECT COUNT(*) FROM games WHERE status IN ('OWNED', 'LENT_OUT') AND is_expansion = 1")
     fun observeOwnedExpansionCount(): Flow<Int>
 
-    /** Wishlist and sold copies are deliberately outside the collection's value. */
+    /**
+     * Wishlist and sold copies are deliberately outside the collection's value.
+     *
+     * `game_costing` rather than the price column, here and in every query below it:
+     * the sleeves and the insert are money that went into the collection and would
+     * otherwise be missing from every figure that claims to say what it cost.
+     */
     @Query(
         """
-        SELECT COALESCE(SUM(price), 0) FROM games
-        WHERE status IN ('OWNED', 'LENT_OUT') AND price IS NOT NULL
+        SELECT COALESCE(SUM(c.total_cost), 0) FROM games g
+        JOIN game_costing c ON c.game_id = g.id
+        WHERE g.status IN ('OWNED', 'LENT_OUT') AND c.total_cost IS NOT NULL
         """
     )
     fun observeCollectionValue(): Flow<Double>
@@ -289,16 +296,18 @@ interface StatsDao {
     @Query(
         """
         SELECT
-            g.id AS game_id, g.title, g.price, g.currency,
+            g.id AS game_id, g.title, c.total_cost, g.currency,
             COUNT(s.id) AS play_count,
-            g.price / COUNT(s.id) AS cost_per_play
+            c.total_cost / COUNT(s.id) AS cost_per_play
         FROM games g
+        JOIN game_costing c ON c.game_id = g.id
         JOIN sessions s ON s.game_id = g.id AND s.is_draft = 0
-        WHERE g.price IS NOT NULL AND g.price > 0 AND g.status IN ('OWNED', 'LENT_OUT')
+        WHERE c.total_cost IS NOT NULL AND c.total_cost > 0
+          AND g.status IN ('OWNED', 'LENT_OUT')
         GROUP BY g.id
         HAVING COUNT(s.id) > 0
-        ORDER BY CASE WHEN :cheapestFirst = 1 THEN g.price / COUNT(s.id)
-                      ELSE -(g.price / COUNT(s.id)) END
+        ORDER BY CASE WHEN :cheapestFirst = 1 THEN c.total_cost / COUNT(s.id)
+                      ELSE -(c.total_cost / COUNT(s.id)) END
         LIMIT :limit
         """
     )
@@ -307,35 +316,47 @@ interface StatsDao {
     @Query(
         """
         SELECT
-            COALESCE(SUM(g.price), 0) /
+            COALESCE(SUM(c.total_cost), 0) /
             NULLIF((SELECT COUNT(*) FROM sessions s2
                     JOIN games g2 ON g2.id = s2.game_id
-                    WHERE s2.is_draft = 0 AND g2.price IS NOT NULL
+                    JOIN game_costing c2 ON c2.game_id = g2.id
+                    WHERE s2.is_draft = 0 AND c2.total_cost IS NOT NULL
                       AND g2.status IN ('OWNED', 'LENT_OUT')), 0)
         FROM games g
-        WHERE g.price IS NOT NULL AND g.status IN ('OWNED', 'LENT_OUT')
+        JOIN game_costing c ON c.game_id = g.id
+        WHERE c.total_cost IS NOT NULL AND g.status IN ('OWNED', 'LENT_OUT')
         """
     )
     fun observeOverallCostPerPlay(): Flow<Double?>
 
+    /**
+     * Accessories land in the year the game was added, because a cost line carries no
+     * date of its own. It is the only date there is, and it keeps these bars summing to
+     * the collection value; a year is not so fine a bucket that a set of sleeves bought
+     * the following January makes it say something false.
+     */
     @Query(
         """
-        SELECT substr(date_added, 1, 4) AS label, COALESCE(SUM(price), 0) AS value
-        FROM games
-        WHERE price IS NOT NULL AND status IN ('OWNED', 'LENT_OUT', 'SOLD')
+        SELECT substr(g.date_added, 1, 4) AS label,
+               COALESCE(SUM(c.total_cost), 0) AS value
+        FROM games g
+        JOIN game_costing c ON c.game_id = g.id
+        WHERE c.total_cost IS NOT NULL AND g.status IN ('OWNED', 'LENT_OUT', 'SOLD')
         GROUP BY label ORDER BY label
         """
     )
     fun observeSpendByYear(): Flow<List<LabelledValue>>
 
-    /** Owned, priced, and still never played: the purchases that have earned nothing. */
+    /** Owned, paid for, and still never played: the purchases that have earned nothing. */
     @Query(
         """
-        SELECT g.title AS label, g.price AS value
+        SELECT g.title AS label, c.total_cost AS value
         FROM games g
-        WHERE g.price IS NOT NULL AND g.price > 0 AND g.status IN ('OWNED', 'LENT_OUT')
+        JOIN game_costing c ON c.game_id = g.id
+        WHERE c.total_cost IS NOT NULL AND c.total_cost > 0
+          AND g.status IN ('OWNED', 'LENT_OUT')
           AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0)
-        ORDER BY g.price DESC
+        ORDER BY c.total_cost DESC
         LIMIT :limit
         """
     )
