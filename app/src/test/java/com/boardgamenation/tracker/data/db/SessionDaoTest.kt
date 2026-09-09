@@ -482,6 +482,50 @@ class SessionDaoTest {
     }
 
     @Test
+    fun `the draft list carries the game a draft belongs to`() = runTest {
+        val id = repository.createDraft(gameId, seating(me, ben))
+
+        val drafts = repository.observeDrafts(SessionFilter()).first()
+        assertEquals(listOf(id), drafts.map { it.id })
+        assertEquals("Catan", drafts.single().gameTitle)
+        assertEquals(2, drafts.single().playerCount)
+    }
+
+    @Test
+    fun `the draft list is ordered newest first`() = runTest {
+        val older = repository.createDraft(gameId, seating(me))
+        val newer = repository.createDraft(gameId, seating(ben))
+
+        assertEquals(
+            listOf(newer, older),
+            repository.observeDrafts(SessionFilter()).first().map { it.id }
+        )
+    }
+
+    @Test
+    fun `the draft list honours the game and player filters`() = runTest {
+        val other = db.gameDao().insert(DatabaseTestFixture.game("Azul"))
+        val mine = repository.createDraft(gameId, seating(me))
+        repository.createDraft(other, seating(ben))
+
+        assertEquals(
+            listOf(mine),
+            repository.observeDrafts(SessionFilter(gameId = gameId)).first().map { it.id }
+        )
+        assertEquals(
+            listOf(mine),
+            repository.observeDrafts(SessionFilter(playerId = me)).first().map { it.id }
+        )
+    }
+
+    @Test
+    fun `a saved play never shows up as a draft`() = runTest {
+        repository.save(form(listOf(me to 10.0)))
+
+        assertTrue(repository.observeDrafts(SessionFilter()).first().isEmpty())
+    }
+
+    @Test
     fun `discarding a draft removes it`() = runTest {
         val id = repository.createDraft(gameId, seating(me, ben))
         repository.discardDraft(id)

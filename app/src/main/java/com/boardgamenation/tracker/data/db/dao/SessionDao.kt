@@ -222,6 +222,41 @@ interface SessionDao {
 
     // --- drafts -------------------------------------------------------------------
 
+    /**
+     * The drafts shown above the session list. Ordered newest first rather than by the
+     * date played: a draft is something to finish, so recency is what ranks it.
+     *
+     * Takes the same game and player filters as [observeSessions] so that narrowing the
+     * list to one game does not leave another game's draft sitting at the top of it. The
+     * date filters are deliberately left out -- a draft has no date worth filtering on
+     * until the play it belongs to is saved.
+     */
+    @Query(
+        """
+        SELECT
+            s.id, s.game_id, g.title AS game_title, g.thumbnail_path,
+            s.played_on, s.duration_minutes, s.player_count, s.location,
+            s.is_cooperative, (s.coop_outcome = 'WIN') AS coop_won, s.mode,
+            s.is_incomplete, s.is_teaching_game, s.end_reason,
+            NULL AS winning_team,
+            NULL AS winner_names,
+            (
+                SELECT p.name FROM session_players sp
+                JOIN players p ON p.id = sp.player_id
+                WHERE sp.session_id = s.id AND sp.turn_order = 1
+            ) AS first_player_name
+        FROM sessions s
+        JOIN games g ON g.id = s.game_id
+        WHERE s.is_draft = 1
+          AND (:gameId IS NULL OR s.game_id = :gameId)
+          AND (:playerId IS NULL OR EXISTS (
+                SELECT 1 FROM session_players sp
+                WHERE sp.session_id = s.id AND sp.player_id = :playerId))
+        ORDER BY s.created_at DESC, s.id DESC
+        """
+    )
+    fun observeDrafts(gameId: Long?, playerId: Long?): Flow<List<SessionListItem>>
+
     @Query("SELECT * FROM sessions WHERE is_draft = 1 ORDER BY created_at DESC")
     suspend fun getDrafts(): List<SessionEntity>
 
