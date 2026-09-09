@@ -14,6 +14,7 @@ import com.boardgamenation.tracker.data.photo.SessionPhotoStore
 import com.boardgamenation.tracker.data.repository.GameRepository
 import com.boardgamenation.tracker.data.repository.PlayerRepository
 import com.boardgamenation.tracker.data.repository.SessionRepository
+import com.boardgamenation.tracker.data.repository.StatsRepository
 import com.boardgamenation.tracker.di.ApplicationScope
 import com.boardgamenation.tracker.domain.model.CoopOutcome
 import com.boardgamenation.tracker.domain.model.ParticipantForm
@@ -97,6 +98,7 @@ class SessionEditViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
+    private val statsRepository: StatsRepository,
     private val saveSession: SaveSessionUseCase,
     private val editSession: EditSessionUseCase,
     private val deleteSession: DeleteSessionUseCase,
@@ -439,6 +441,10 @@ class SessionEditViewModel @Inject constructor(
      * placement is derived when a session is written, so a form with edited scores in it
      * has not been ranked yet -- sharing it would publish a standings table the app
      * itself does not agree with. The picture is of the record.
+     *
+     * Who set a record is asked for at the same moment and for the same reason: it is a
+     * question about the saved play against every other saved play, so an edit that has
+     * not been written yet would be compared against a history it is not part of.
      */
     fun share() {
         val id = _state.value.form.id
@@ -448,7 +454,11 @@ class SessionEditViewModel @Inject constructor(
         viewModelScope.launch {
             val form = sessionRepository.loadForm(id)
             val event = form
-                ?.let { runCatching { shareImages.write(ShareCard.of(it)) }.getOrNull() }
+                ?.let {
+                    runCatching {
+                        shareImages.write(ShareCard.of(it, statsRepository.personalBestsSetIn(id)))
+                    }.getOrNull()
+                }
                 ?.let { SessionEditEvent.ShareReady(it, form.gameTitle) }
                 ?: SessionEditEvent.ShareFailed
             _state.value = _state.value.copy(isSharing = false)
