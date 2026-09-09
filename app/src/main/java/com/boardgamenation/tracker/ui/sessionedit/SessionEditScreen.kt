@@ -3,6 +3,8 @@ package com.boardgamenation.tracker.ui.sessionedit
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,11 +13,13 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -52,12 +56,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import com.boardgamenation.tracker.R
 import com.boardgamenation.tracker.core.time.DateUtils
 import com.boardgamenation.tracker.domain.model.CoopOutcome
@@ -72,12 +84,14 @@ import com.boardgamenation.tracker.ui.components.PlayerDot
 import com.boardgamenation.tracker.ui.components.SectionHeader
 import com.boardgamenation.tracker.ui.gameedit.labelRes
 import com.boardgamenation.tracker.ui.theme.LocalChartColors
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit, viewModel: SessionEditViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var deleteOpen by remember { mutableStateOf(false) }
+    var photoOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val snackbarHost = remember { SnackbarHostState() }
 
@@ -483,40 +497,51 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
             }
 
             item {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(
-                            if (state.form.photoUri.isNullOrBlank()) {
-                                R.string.session_edit_photo
-                            } else {
-                                R.string.session_edit_photo_attached
-                            }
-                        ),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (!state.form.photoUri.isNullOrBlank()) {
-                        TextButton(
-                            onClick = viewModel::removePhoto
-                        ) { Text(stringResource(R.string.session_edit_remove_photo)) }
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            photoPicker.launch(
-                                PickVisualMediaRequest(
-                                    ActivityResultContracts.PickVisualMedia.ImageOnly
-                                )
-                            )
+                val photoPath = state.form.photoUri?.takeIf { it.isNotBlank() }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(
+                                if (photoPath == null) {
+                                    R.string.session_edit_photo
+                                } else {
+                                    R.string.session_edit_photo_attached
+                                }
+                            ),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (photoPath != null) {
+                            TextButton(
+                                onClick = viewModel::removePhoto
+                            ) { Text(stringResource(R.string.session_edit_remove_photo)) }
                         }
-                    ) { Text(stringResource(R.string.action_add)) }
+                        OutlinedButton(
+                            onClick = {
+                                photoPicker.launch(
+                                    PickVisualMediaRequest(
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                                    )
+                                )
+                            }
+                        ) { Text(stringResource(R.string.action_add)) }
+                    }
+
+                    if (photoPath != null) {
+                        SessionPhoto(path = photoPath, onOpen = { photoOpen = true })
+                    }
                 }
             }
 
             item { Spacer(Modifier.height(48.dp)) }
         }
+    }
+
+    state.form.photoUri?.takeIf { photoOpen }?.let { path ->
+        SessionPhotoViewer(path = path, onDismiss = { photoOpen = false })
     }
 
     if (deleteOpen) {
@@ -854,5 +879,72 @@ private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+/**
+ * The attachment, shown rather than merely reported.
+ *
+ * A picture attached before the app copied them in is a uri whose read grant lapsed long
+ * ago and which nothing can render any more. Saying so is more use than an empty grey
+ * box, and it makes the remove button beside it the obvious thing to reach for.
+ */
+@Composable
+private fun SessionPhoto(path: String, onOpen: () -> Unit) {
+    val file = remember(path) { File(path).takeIf { it.exists() } }
+    if (file == null) {
+        Text(
+            text = stringResource(R.string.session_edit_photo_missing),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
+    }
+    AsyncImage(
+        model = ImageRequest.Builder(LocalContext.current).data(file).crossfade(true).build(),
+        contentDescription = stringResource(R.string.cd_session_photo),
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onOpen)
+    )
+}
+
+/** The whole picture, on a dark ground, dismissed by tapping anywhere on it. */
+@Composable
+private fun SessionPhotoViewer(path: String, onDismiss: () -> Unit) {
+    val file = remember(path) { File(path).takeIf { it.exists() } } ?: return
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.92f))
+                .clickable(onClick = onDismiss),
+            contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current).data(file).build(),
+                contentDescription = stringResource(R.string.cd_session_photo),
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxWidth()
+            )
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.action_close),
+                    tint = Color.White
+                )
+            }
+        }
     }
 }
