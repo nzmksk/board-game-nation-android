@@ -34,6 +34,16 @@ class GameStatusTest {
     }
 
     /**
+     * An archive exported while "Preordered" was a status still says it. A preorder is a
+     * game somebody wants and does not have, so it reads back as a wishlist entry rather
+     * than falling through to the owned default and quietly joining the collection.
+     */
+    @Test
+    fun `a preordered status from an old archive reads back as a wishlist game`() {
+        assertEquals(GameStatus.WISHLIST, GameStatus.fromStorage("PREORDERED"))
+    }
+
+    /**
      * A CSV row with no status, or one written by a version of the app that knew a name
      * this one does not, has to land somewhere. Owned is the assumption the rest of the
      * app already makes about a game with no status recorded.

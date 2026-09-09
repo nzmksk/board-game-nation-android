@@ -620,7 +620,7 @@ class DevFixtures @Inject constructor(
             GameSpec(
                 "Sky Team", 2023, 2, 2, "2", 15, 20, 2.0, 120.0, "Luc Remond", "Le Scorpion Masque",
                 listOf("Dice Placement", "Team Play"), listOf("Aviation"),
-                scoring = ScoringMode.COOPERATIVE, status = GameStatus.PREORDERED
+                scoring = ScoringMode.COOPERATIVE, status = GameStatus.PLAYED_NOT_OWNED
             )
         )
     }

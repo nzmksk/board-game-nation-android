@@ -6,6 +6,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import com.boardgamenation.tracker.data.db.query.GameQueryBuilder
+import com.boardgamenation.tracker.domain.model.CollectionFilter
+import com.boardgamenation.tracker.domain.model.GameStatus
 import com.boardgamenation.tracker.domain.model.SessionEndCondition
 import com.boardgamenation.tracker.domain.model.TagKind
 import com.boardgamenation.tracker.domain.model.TimerMode
@@ -447,6 +450,62 @@ class MigrationTest {
         assertEquals(58.0, rows.first { it.playerId == 1L }.score!!, 0.0)
     }
 
+    // --- preordered -----------------------------------------------------------------
+
+    /**
+     * A preorder was a game somebody wanted and did not have, which is what the wishlist
+     * already says. Landing on the [GameStatus.OWNED] default instead would have put a
+     * copy that never arrived on the shelf and its price into the collection's value.
+     */
+    @Test
+    fun `a preordered game becomes a wishlist game`() = runTest {
+        seedAt(9) { db ->
+            insertGameV9(db, id = 1, title = "Sky Team", status = "PREORDERED", price = 120.0)
+        }
+
+        val db = openMigrated()
+
+        assertEquals(GameStatus.WISHLIST, db.gameDao().getGame(1)!!.status)
+        assertEquals("the rest of the row is untouched", 120.0, db.gameDao().getGame(1)!!.price!!, 0.0)
+    }
+
+    /**
+     * The rewrite is what puts the game back within reach of the filters. The status
+     * column is filtered on by name, so a row still saying `PREORDERED` would read as a
+     * wishlist game on its own screen while the wishlist filter went on not returning it.
+     */
+    @Test
+    fun `a migrated preorder is found by the wishlist filter`() = runTest {
+        seedAt(9) { db ->
+            insertGameV9(db, id = 1, title = "Sky Team", status = "PREORDERED")
+            insertGameV9(db, id = 2, title = "Catan", status = "OWNED")
+        }
+
+        val db = openMigrated()
+        val wishlist = db.gameDao()
+            .observeCollection(GameQueryBuilder.build(CollectionFilter(statuses = setOf(GameStatus.WISHLIST))))
+            .first()
+
+        assertEquals(listOf("Sky Team"), wishlist.map { it.title })
+    }
+
+    @Test
+    fun `no other status is rewritten on the way past`() = runTest {
+        seedAt(9) { db ->
+            insertGameV9(db, id = 1, title = "Catan", status = "OWNED")
+            insertGameV9(db, id = 2, title = "Nucleum", status = "WISHLIST")
+            insertGameV9(db, id = 3, title = "Root", status = "SOLD")
+            insertGameV9(db, id = 4, title = "Azul", status = "LENT_OUT")
+        }
+
+        val db = openMigrated()
+
+        assertEquals(
+            listOf(GameStatus.OWNED, GameStatus.WISHLIST, GameStatus.SOLD, GameStatus.LENT_OUT),
+            db.gameDao().getAllGames().sortedBy { it.id }.map { it.status }
+        )
+    }
+
     // --- integrity ------------------------------------------------------------------
 
     @Test
@@ -531,6 +590,13 @@ class MigrationTest {
         INSERT INTO games (id, title, date_added, status, sudden_death_possible,
                            created_at, updated_at)
         VALUES ($id, '$title', '2026-01-01', 'OWNED', $suddenDeathPossible, 0, 0)
+        """.trimIndent()
+    )
+
+    private fun insertGameV9(db: SupportSQLiteDatabase, id: Long, title: String, status: String, price: Double? = null) = db.execSQL(
+        """
+        INSERT INTO games (id, title, date_added, status, price, created_at, updated_at)
+        VALUES ($id, '$title', '2026-01-01', '$status', ${price ?: "NULL"}, 0, 0)
         """.trimIndent()
     )
 

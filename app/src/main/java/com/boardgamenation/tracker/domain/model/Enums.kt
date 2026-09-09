@@ -4,7 +4,6 @@ package com.boardgamenation.tracker.domain.model
 enum class GameStatus {
     OWNED,
     WISHLIST,
-    PREORDERED,
 
     /**
      * Played, but never owned: the copy belonged to a friend, a club or a cafe.
@@ -24,7 +23,19 @@ enum class GameStatus {
         get() = this == OWNED || this == LENT_OUT
 
     companion object {
-        fun fromStorage(value: String?): GameStatus = entries.firstOrNull { it.name == value } ?: OWNED
+
+        /**
+         * "PREORDERED" is what this column said for a game bought but not yet delivered,
+         * and an archive exported while that status existed still says it. A preorder is
+         * a game somebody wants and does not have, which is exactly [WISHLIST], so it
+         * reads back as that rather than falling through to the [OWNED] default -- which
+         * would have put a copy that never arrived on the shelf and its price into the
+         * collection's value.
+         */
+        fun fromStorage(value: String?): GameStatus = when (value) {
+            "PREORDERED" -> WISHLIST
+            else -> entries.firstOrNull { it.name == value } ?: OWNED
+        }
     }
 }
 

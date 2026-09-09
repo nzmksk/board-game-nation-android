@@ -379,6 +379,36 @@ object Migrations {
     }
 
     /**
+     * Rewrites the games a preorder status was the only home for.
+     *
+     * "Preordered" answered a question about a receipt rather than about a shelf, and it
+     * was the only status that did: everything else says where the copy is. Nothing in
+     * the app ever acted on it -- it did not count toward the collection, it carried no
+     * delivery date, and the only thing that told it apart from a wishlist entry was the
+     * word on the chip -- so it was a fifth thing to choose between with nothing behind
+     * it. The status a game played on somebody else's copy needs is a real gap; this was
+     * not one.
+     *
+     * The rows become `WISHLIST`, which is the same claim the preorder was making: a game
+     * somebody wants and does not have yet. That is a rename of what was already true, not
+     * a new statement about anybody's collection.
+     *
+     * It has to happen here and not only in `GameStatus.fromStorage`, because the column
+     * is filtered on by name. A row left saying `PREORDERED` would be read back as a
+     * wishlist game on the detail screen while the wishlist filter -- which asks SQLite
+     * for `status IN ('WISHLIST')` -- went on not returning it, and the game would sit in
+     * the collection reachable only by scrolling past every filter that should have found
+     * it.
+     *
+     * Nothing about the schema changes: `status` is TEXT with no constraint naming the
+     * statuses, so this is a version bump carrying data across and 10.json is 9.json with
+     * a new number on it.
+     */
+    private val MIGRATION_9_10 = Migration(9, 10) { db ->
+        db.execSQL("UPDATE games SET status = 'WISHLIST' WHERE status = 'PREORDERED'")
+    }
+
+    /**
      * Ordered oldest to newest. Room composes them, so a device three versions behind
      * walks the chain rather than needing a 1-to-4 migration of its own.
      */
@@ -390,6 +420,7 @@ object Migrations {
         MIGRATION_5_6,
         MIGRATION_6_7,
         MIGRATION_7_8,
-        MIGRATION_8_9
+        MIGRATION_8_9,
+        MIGRATION_9_10
     )
 }

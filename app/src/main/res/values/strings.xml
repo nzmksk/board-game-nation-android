@@ -95,7 +95,6 @@
     <!-- Game statuses -->
     <string name="status_owned">Owned</string>
     <string name="status_wishlist">Wishlist</string>
-    <string name="status_preordered">Preordered</string>
     <string name="status_played_not_owned">Played, not owned</string>
     <string name="status_sold">Sold</string>
     <string name="status_lent_out">Lent out</string>
