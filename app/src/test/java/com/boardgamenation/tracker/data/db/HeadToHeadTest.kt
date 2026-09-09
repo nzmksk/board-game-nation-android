@@ -17,6 +17,10 @@ import org.robolectric.RobolectricTestRunner
  * The record is the sort key, not the sample size: the opponents beaten most often come
  * first, and among equal win counts the one who has won back the least. How many plays
  * the two have shared does not enter into it.
+ *
+ * Also that a play the two both won is a draw and only a draw. Ties for first are a real
+ * outcome in this app, and the counting has to keep them out of both the win and the loss
+ * column rather than putting them in both.
  */
 @RunWith(RobolectricTestRunner::class)
 class HeadToHeadTest {
@@ -40,13 +44,20 @@ class HeadToHeadTest {
     private suspend fun opponent(name: String) = db.playerDao().insert(DatabaseTestFixture.player(name))
 
     /**
-     * Plays out a record between the owner and one opponent. [unfinished] plays are
-     * shared but have no winner, which is how a pair can share more plays than their
-     * record accounts for.
+     * Plays out a record between the owner and one opponent. A [draws] play is one both
+     * of them won, which is what a tie for first looks like in the data. [unfinished]
+     * plays are shared but have no winner, which is how a pair can share more plays than
+     * their record accounts for.
      */
-    private suspend fun record(opponentId: Long, wins: Int, losses: Int, unfinished: Int = 0) {
-        repeat(wins + losses + unfinished) { index ->
-            val incomplete = index >= wins + losses
+    private suspend fun record(
+        opponentId: Long,
+        wins: Int,
+        losses: Int,
+        draws: Int = 0,
+        unfinished: Int = 0
+    ) {
+        repeat(wins + losses + draws + unfinished) { index ->
+            val incomplete = index >= wins + losses + draws
             val sessionId = db.sessionDao().insertSession(
                 DatabaseTestFixture.session(
                     gameId,
@@ -54,7 +65,8 @@ class HeadToHeadTest {
                     isIncomplete = incomplete
                 )
             )
-            val selfWon = index < wins
+            val selfWon = index < wins || index >= wins + losses
+            val opponentWon = index >= wins
             db.sessionDao().insertParticipants(
                 listOf(
                     DatabaseTestFixture.participant(
@@ -65,7 +77,7 @@ class HeadToHeadTest {
                     DatabaseTestFixture.participant(
                         sessionId,
                         opponentId,
-                        isWinner = !incomplete && !selfWon
+                        isWinner = !incomplete && opponentWon
                     )
                 )
             )
@@ -122,6 +134,28 @@ class HeadToHeadTest {
 
         assertEquals(listOf("Occasional", "Constant"), names())
         assertEquals("Constant", repository.nemesis().first()?.opponentName)
+    }
+
+    @Test
+    fun `a play both of them won is a draw and nothing else`() = runTest {
+        val rival = opponent("Nadia")
+        record(rival, wins = 3, losses = 1, draws = 3)
+
+        val row = db.statsDao().observeHeadToHead().first().single()
+        assertEquals(3, row.selfWins)
+        assertEquals(1, row.opponentWins)
+        assertEquals(3, row.draws)
+        assertEquals(7, row.sharedPlays)
+    }
+
+    @Test
+    fun `drawing repeatedly does not make someone the nemesis`() = runTest {
+        // Stalemate ties nearly every play and outright beats the user once; Beater wins
+        // half of a shorter record. Counting a draw as a loss would answer Stalemate.
+        record(opponent("Stalemate"), wins = 1, losses = 1, draws = 8)
+        record(opponent("Beater"), wins = 2, losses = 2)
+
+        assertEquals("Beater", repository.nemesis().first()?.opponentName)
     }
 
     @Test

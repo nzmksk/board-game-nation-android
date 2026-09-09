@@ -132,14 +132,24 @@ data class PlayerStandingRow(
     @ColumnInfo(name = "avg_score") val avgScore: Double?
 )
 
-/** Head-to-head record between the device owner and one opponent. */
+/**
+ * Head-to-head record between the device owner and one opponent.
+ *
+ * Wins, losses and [draws] are three separate outcomes rather than two: this app lets a
+ * tie for first make both players winners, so a shared victory belongs in neither
+ * column. Counting it in both would let one play be a win and a loss at once.
+ *
+ * The three still need not add up to [sharedPlays]. A play the two shared and a third
+ * player won is none of the three, and neither is a play that was abandoned unfinished.
+ */
 data class HeadToHeadRow(
     @ColumnInfo(name = "opponent_id") val opponentId: Long,
     @ColumnInfo(name = "opponent_name") val opponentName: String,
     @ColumnInfo(name = "color_hex") val colorHex: String?,
     @ColumnInfo(name = "shared_plays") val sharedPlays: Int,
     @ColumnInfo(name = "self_wins") val selfWins: Int,
-    @ColumnInfo(name = "opponent_wins") val opponentWins: Int
+    @ColumnInfo(name = "opponent_wins") val opponentWins: Int,
+    @ColumnInfo(name = "draws") val draws: Int
 )
 
 /**

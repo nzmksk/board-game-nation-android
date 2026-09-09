@@ -386,6 +386,10 @@ interface StatsDao {
      * Head-to-head against the device owner. Only competitive sessions count: in a
      * co-op everybody wins or loses together, which says nothing about who is better.
      *
+     * A play the two both won is a draw, not a win and a loss. Ties for first are real
+     * here -- `is_winner` is set on every tied player -- so each column is conditioned on
+     * what the other player did rather than counting its own flag in isolation.
+     *
      * Ordered by how the record reads rather than by how much of it there is: wins over
      * the opponent first, then the fewest losses to them. A 10-0 outranks a 10-5, which
      * outranks a 10-13, and every one of those outranks a 5-3. Sorting by shared plays
@@ -396,8 +400,9 @@ interface StatsDao {
         SELECT
             p.id AS opponent_id, p.name AS opponent_name, p.color_hex,
             COUNT(*) AS shared_plays,
-            COALESCE(SUM(self.is_winner), 0) AS self_wins,
-            COALESCE(SUM(opp.is_winner), 0) AS opponent_wins
+            COALESCE(SUM(self.is_winner = 1 AND opp.is_winner = 0), 0) AS self_wins,
+            COALESCE(SUM(self.is_winner = 0 AND opp.is_winner = 1), 0) AS opponent_wins,
+            COALESCE(SUM(self.is_winner = 1 AND opp.is_winner = 1), 0) AS draws
         FROM session_players opp
         JOIN players p ON p.id = opp.player_id
         JOIN sessions s ON s.id = opp.session_id AND s.is_draft = 0 AND s.is_cooperative = 0
