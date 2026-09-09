@@ -126,6 +126,7 @@ class CsvExporter @Inject constructor(
      */
     private suspend fun buildTables(): List<Pair<String, Table>> {
         val games = gameDao.getAllGames().sortedBy { it.id }
+        val gameCosts = gameDao.getAllCosts().sortedBy { it.id }
         val tags = tagDao.getAll().sortedBy { it.id }
         val gameTags = tagDao.getAllLinks().sortedWith(compareBy({ it.gameId }, { it.tagId }))
         val players = playerDao.getAll().sortedBy { it.id }
@@ -157,6 +158,18 @@ class CsvExporter @Inject constructor(
                         Csv.formatBool(g.isExpansion), Csv.formatLong(g.baseGameId),
                         g.scoringMode.name, Csv.formatBool(g.highScoreWins), g.notes,
                         g.createdAt.toString(), g.updatedAt.toString()
+                    )
+                }
+            ),
+            CsvSchema.GAME_COSTS to Table(
+                CsvSchema.gameCostColumns,
+                gameCosts.map {
+                    listOf(
+                        it.id.toString(),
+                        it.gameId.toString(),
+                        it.label,
+                        Csv.formatDouble(it.amount),
+                        it.sortOrder.toString()
                     )
                 }
             ),

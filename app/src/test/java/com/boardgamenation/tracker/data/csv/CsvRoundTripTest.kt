@@ -5,6 +5,7 @@ import com.boardgamenation.tracker.data.db.AppDatabase
 import com.boardgamenation.tracker.data.db.DatabaseTestFixture
 import com.boardgamenation.tracker.data.db.entity.AchievementEntity
 import com.boardgamenation.tracker.data.db.entity.AchievementUnlockEntity
+import com.boardgamenation.tracker.data.db.entity.GameCostEntity
 import com.boardgamenation.tracker.data.db.entity.GameRatingEntity
 import com.boardgamenation.tracker.data.db.entity.GameRatingScoreEntity
 import com.boardgamenation.tracker.data.db.entity.GameTagCrossRef
@@ -111,6 +112,15 @@ class CsvRoundTripTest {
         )
         db.gameDao().insert(
             DatabaseTestFixture.game("Wanted \"badly\"", status = GameStatus.WISHLIST)
+        )
+
+        db.gameDao().replaceCosts(
+            catan,
+            listOf(
+                GameCostEntity(gameId = catan, label = "Sleeves", amount = 35.5),
+                // A comma and a quote, for the same reason the game titles carry them.
+                GameCostEntity(gameId = catan, label = "Insert, \"deluxe\"", amount = 90.0)
+            )
         )
 
         val trading = db.tagDao().upsertByName("Trading", TagKind.MECHANIC)
@@ -306,6 +316,23 @@ class CsvRoundTripTest {
             "a seat is not read off the turn order on the way back in",
             rows.filter { it.playerId == aina.id }.all { it.turnOrder == null }
         )
+    }
+
+    @Test
+    fun `accessory costs survive the round trip`() = runTest {
+        populate()
+        val files = exporter.buildFiles()
+        maintenance.wipeUserData()
+        importer.import(files, ImportMode.REPLACE)
+
+        val catan = db.gameDao().getGameByTitle("Catan")!!
+        val costs = db.gameDao().getCosts(catan.id)
+
+        assertEquals(listOf("Sleeves", "Insert, \"deluxe\""), costs.map { it.label })
+        assertEquals(35.5, costs.first().amount, 0.001)
+        // Two priced games at 120 and 90, plus the 125.50 spent on Catan afterwards:
+        // the archive has to bring back the accessories as well as the boxes.
+        assertEquals(335.5, db.statsDao().observeCollectionValue().first(), 0.001)
     }
 
     @Test

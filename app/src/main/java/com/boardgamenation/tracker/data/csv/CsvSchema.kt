@@ -11,6 +11,7 @@ package com.boardgamenation.tracker.data.csv
 object CsvSchema {
 
     const val GAMES = "games.csv"
+    const val GAME_COSTS = "game_costs.csv"
     const val TAGS = "tags.csv"
     const val GAME_TAGS = "game_tags.csv"
     const val PLAYERS = "players.csv"
@@ -25,9 +26,9 @@ object CsvSchema {
     const val MANIFEST = "manifest.csv"
 
     val ALL_FILES = listOf(
-        GAMES, TAGS, GAME_TAGS, PLAYERS, SESSIONS, SESSION_PLAYERS, SESSION_EXPANSIONS,
-        RUBRICS, RUBRIC_CRITERIA, GAME_RATINGS, GAME_RATING_SCORES, ACHIEVEMENT_UNLOCKS,
-        MANIFEST
+        GAMES, GAME_COSTS, TAGS, GAME_TAGS, PLAYERS, SESSIONS, SESSION_PLAYERS,
+        SESSION_EXPANSIONS, RUBRICS, RUBRIC_CRITERIA, GAME_RATINGS, GAME_RATING_SCORES,
+        ACHIEVEMENT_UNLOCKS, MANIFEST
     )
 
     /**
@@ -35,8 +36,9 @@ object CsvSchema {
      * has not been written yet.
      */
     val IMPORT_ORDER = listOf(
-        GAMES, TAGS, GAME_TAGS, PLAYERS, SESSIONS, SESSION_PLAYERS, SESSION_EXPANSIONS,
-        RUBRICS, RUBRIC_CRITERIA, GAME_RATINGS, GAME_RATING_SCORES, ACHIEVEMENT_UNLOCKS
+        GAMES, GAME_COSTS, TAGS, GAME_TAGS, PLAYERS, SESSIONS, SESSION_PLAYERS,
+        SESSION_EXPANSIONS, RUBRICS, RUBRIC_CRITERIA, GAME_RATINGS, GAME_RATING_SCORES,
+        ACHIEVEMENT_UNLOCKS
     )
 
     val gameColumns = listOf(
@@ -47,6 +49,8 @@ object CsvSchema {
         "lent_to", "lent_date", "is_expansion", "base_game_id", "scoring_mode",
         "high_score_wins", "notes", "created_at", "updated_at"
     )
+
+    val gameCostColumns = listOf("id", "game_id", "label", "amount", "sort_order")
 
     val tagColumns = listOf("id", "name", "kind")
 
@@ -108,6 +112,7 @@ object CsvSchema {
     /** The columns an importer refuses to proceed without. */
     fun requiredColumnsFor(file: String): List<String> = when (file) {
         GAMES -> listOf("title", "date_added", "status")
+        GAME_COSTS -> listOf("game_id", "label", "amount")
         TAGS -> listOf("name", "kind")
         GAME_TAGS -> listOf("game_id", "tag_id")
         PLAYERS -> listOf("name")
@@ -124,6 +129,7 @@ object CsvSchema {
 
     fun columnsFor(file: String): List<String> = when (file) {
         GAMES -> gameColumns
+        GAME_COSTS -> gameCostColumns
         TAGS -> tagColumns
         GAME_TAGS -> gameTagColumns
         PLAYERS -> playerColumns
