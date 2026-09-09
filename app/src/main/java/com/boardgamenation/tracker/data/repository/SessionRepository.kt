@@ -217,7 +217,10 @@ class SessionRepository @Inject constructor(
             )
         }
 
-        val id = sessionDao.saveComplete(entity, rows, form.expansionIds)
+        // The set is written alongside the column it is read back on, which for now is
+        // the one configuration the form can hold. Both sides of `session_modes` exist
+        // before anything asks it for more than one answer.
+        val id = sessionDao.saveComplete(entity, rows, form.expansionIds, listOfNotNull(entity.mode))
 
         // The scoring mode the user actually used is the one worth remembering.
         gameDao.getGame(form.gameId)?.let { game ->
