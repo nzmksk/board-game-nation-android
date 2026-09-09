@@ -29,16 +29,16 @@ interface AchievementStatsDao {
     )
     fun observeInvalidationToken(): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM sessions WHERE is_draft = 0")
+    @Query("SELECT COUNT(*) FROM sessions WHERE is_draft = 0 AND is_invalid = 0")
     suspend fun totalPlays(): Int
 
-    @Query("SELECT COALESCE(SUM(duration_minutes), 0) / 60.0 FROM sessions WHERE is_draft = 0")
+    @Query("SELECT COALESCE(SUM(duration_minutes), 0) / 60.0 FROM sessions WHERE is_draft = 0 AND is_invalid = 0")
     suspend fun totalHours(): Double
 
     @Query("SELECT COUNT(*) FROM games WHERE status IN ('OWNED', 'LENT_OUT')")
     suspend fun gamesOwned(): Int
 
-    @Query("SELECT COUNT(DISTINCT game_id) FROM sessions WHERE is_draft = 0")
+    @Query("SELECT COUNT(DISTINCT game_id) FROM sessions WHERE is_draft = 0 AND is_invalid = 0")
     suspend fun distinctGamesPlayed(): Int
 
     @Query(
@@ -46,7 +46,7 @@ interface AchievementStatsDao {
         SELECT COUNT(DISTINCT t.id) FROM tags t
         JOIN game_tags gt ON gt.tag_id = t.id
         WHERE t.kind = 'MECHANIC'
-          AND EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = gt.game_id AND s.is_draft = 0)
+          AND EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = gt.game_id AND s.is_draft = 0 AND s.is_invalid = 0)
         """
     )
     suspend fun distinctMechanicsPlayed(): Int
@@ -55,7 +55,7 @@ interface AchievementStatsDao {
     @Query(
         """
         SELECT COUNT(DISTINCT s.game_id) FROM sessions s
-        WHERE s.is_draft = 0 AND s.is_teaching_game = 1
+        WHERE s.is_draft = 0 AND s.is_invalid = 0 AND s.is_teaching_game = 1
           AND EXISTS (
               SELECT 1 FROM session_players sp
               WHERE sp.session_id = s.id AND sp.is_new_player = 1
@@ -70,7 +70,7 @@ interface AchievementStatsDao {
     @Query(
         """
         SELECT COUNT(DISTINCT sp.player_id) FROM session_players sp
-        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0
+        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0 AND s.is_invalid = 0
         """
     )
     suspend fun distinctPlayers(): Int
@@ -78,7 +78,7 @@ interface AchievementStatsDao {
     @Query(
         """
         SELECT COALESCE(MAX(c), 0) FROM (
-            SELECT COUNT(*) AS c FROM sessions WHERE is_draft = 0 GROUP BY game_id
+            SELECT COUNT(*) AS c FROM sessions WHERE is_draft = 0 AND is_invalid = 0 GROUP BY game_id
         )
         """
     )
@@ -87,7 +87,7 @@ interface AchievementStatsDao {
     @Query(
         """
         SELECT COALESCE(MAX(c), 0) FROM (
-            SELECT COUNT(*) AS c FROM sessions WHERE is_draft = 0 GROUP BY played_on
+            SELECT COUNT(*) AS c FROM sessions WHERE is_draft = 0 AND is_invalid = 0 GROUP BY played_on
         )
         """
     )
@@ -96,7 +96,7 @@ interface AchievementStatsDao {
     @Query(
         """
         SELECT COALESCE(MAX(c), 0) FROM (
-            SELECT COUNT(*) AS c FROM sessions WHERE is_draft = 0
+            SELECT COUNT(*) AS c FROM sessions WHERE is_draft = 0 AND is_invalid = 0
             GROUP BY strftime('%Y-%W', played_on)
         )
         """
@@ -106,24 +106,24 @@ interface AchievementStatsDao {
     @Query(
         """
         SELECT COALESCE(MAX(c), 0) FROM (
-            SELECT COUNT(*) AS c FROM sessions WHERE is_draft = 0
+            SELECT COUNT(*) AS c FROM sessions WHERE is_draft = 0 AND is_invalid = 0
             GROUP BY strftime('%Y-%m', played_on)
         )
         """
     )
     suspend fun maxPlaysInOneMonth(): Int
 
-    @Query("SELECT COALESCE(MAX(player_count), 0) FROM sessions WHERE is_draft = 0")
+    @Query("SELECT COALESCE(MAX(player_count), 0) FROM sessions WHERE is_draft = 0 AND is_invalid = 0")
     suspend fun maxSessionPlayerCount(): Int
 
-    @Query("SELECT COALESCE(MAX(duration_minutes), 0) FROM sessions WHERE is_draft = 0")
+    @Query("SELECT COALESCE(MAX(duration_minutes), 0) FROM sessions WHERE is_draft = 0 AND is_invalid = 0")
     suspend fun maxSessionDurationMinutes(): Int
 
     @Query(
         """
         SELECT COALESCE(MAX(g.weight), 0) FROM games g
         WHERE g.weight IS NOT NULL
-          AND EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0)
+          AND EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0)
         """
     )
     suspend fun maxWeightPlayed(): Double
@@ -135,7 +135,7 @@ interface AchievementStatsDao {
             SELECT COALESCE(SUM(sp.is_winner), 0) * 100.0 / COUNT(*) AS rate
             FROM session_players sp
             JOIN players p ON p.id = sp.player_id AND p.is_self = 1
-            JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0 AND s.is_cooperative = 0
+            JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0 AND s.is_invalid = 0 AND s.is_cooperative = 0
             GROUP BY s.game_id
             HAVING COUNT(*) >= :minPlays
         )
@@ -147,7 +147,7 @@ interface AchievementStatsDao {
         """
         SELECT COUNT(*) FROM games g
         WHERE g.status IN ('OWNED', 'LENT_OUT')
-          AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0)
+          AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0)
         """
     )
     suspend fun unplayedOwnedCount(): Int
@@ -157,7 +157,7 @@ interface AchievementStatsDao {
         SELECT COALESCE(MIN(cpp), 0) FROM (
             SELECT g.price / COUNT(s.id) AS cpp
             FROM games g
-            JOIN sessions s ON s.game_id = g.id AND s.is_draft = 0
+            JOIN sessions s ON s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0
             WHERE g.price IS NOT NULL AND g.price > 0
             GROUP BY g.id
             HAVING COUNT(s.id) > 0
@@ -181,7 +181,7 @@ interface AchievementStatsDao {
             GROUP BY t.id
             HAVING COUNT(*) >= :minGames AND SUM(
                 CASE WHEN EXISTS (
-                    SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0
+                    SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0
                 ) THEN 0 ELSE 1 END
             ) = 0
         )
@@ -192,14 +192,14 @@ interface AchievementStatsDao {
     // --- ordered, for the sequential metrics ---------------------------------------
 
     /** Distinct ISO dates with a play, ascending. One short string per playing day. */
-    @Query("SELECT DISTINCT played_on FROM sessions WHERE is_draft = 0 ORDER BY played_on")
+    @Query("SELECT DISTINCT played_on FROM sessions WHERE is_draft = 0 AND is_invalid = 0 ORDER BY played_on")
     suspend fun playDates(): List<String>
 
     /** Distinct year-week keys with a play, ascending. */
     @Query(
         """
         SELECT DISTINCT strftime('%Y-%W', played_on) AS wk
-        FROM sessions WHERE is_draft = 0 ORDER BY wk
+        FROM sessions WHERE is_draft = 0 AND is_invalid = 0 ORDER BY wk
         """
     )
     suspend fun playWeeks(): List<String>
@@ -208,7 +208,7 @@ interface AchievementStatsDao {
     @Query(
         """
         SELECT DISTINCT strftime('%Y-%m', played_on) AS mo
-        FROM sessions WHERE is_draft = 0 ORDER BY mo
+        FROM sessions WHERE is_draft = 0 AND is_invalid = 0 ORDER BY mo
         """
     )
     suspend fun playMonths(): List<String>
@@ -222,7 +222,7 @@ interface AchievementStatsDao {
         """
         SELECT sp.is_winner FROM session_players sp
         JOIN players p ON p.id = sp.player_id AND p.is_self = 1
-        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0 AND s.is_cooperative = 0
+        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0 AND s.is_invalid = 0 AND s.is_cooperative = 0
         ORDER BY s.played_on, s.id
         """
     )

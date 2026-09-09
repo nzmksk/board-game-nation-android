@@ -74,6 +74,9 @@ interface GameDao {
      * Everything the game detail screen needs in one pass. Incomplete sessions are
      * counted as plays but kept out of the duration averages, because an abandoned game
      * says nothing useful about how long the game takes.
+     *
+     * A play flagged as invalid is not counted at all, here or in any other statistic:
+     * a game set up or played wrongly says nothing useful about anything.
      */
     @Query(
         """
@@ -99,7 +102,7 @@ interface GameDao {
                 WHERE sp.session_id = s.id AND p.is_self = 1
             )), 0) AS self_plays
         FROM sessions s
-        WHERE s.game_id = :gameId AND s.is_draft = 0
+        WHERE s.game_id = :gameId AND s.is_draft = 0 AND s.is_invalid = 0
         """
     )
     fun observeAggregates(gameId: Long): Flow<GameAggregates>
@@ -127,7 +130,8 @@ interface GameDao {
             COALESCE(SUM(sp.is_winner), 0) AS wins
         FROM session_players sp
         JOIN sessions s ON s.id = sp.session_id
-        WHERE s.game_id = :gameId AND s.is_draft = 0 AND s.is_incomplete = 0
+        WHERE s.game_id = :gameId AND s.is_draft = 0 AND s.is_invalid = 0
+          AND s.is_incomplete = 0
           AND sp.faction IS NOT NULL AND trim(sp.faction) <> ''
         GROUP BY sp.faction COLLATE NOCASE
         ORDER BY (wins * 1.0 / plays) DESC, plays DESC, faction COLLATE NOCASE

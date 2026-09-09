@@ -75,10 +75,10 @@ interface PlayerDao {
         """
         SELECT p.*,
             (SELECT COUNT(*) FROM session_players sp
-             JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0
+             JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0 AND s.is_invalid = 0
              WHERE sp.player_id = p.id) AS plays,
             (SELECT COUNT(*) FROM session_players sp
-             JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0
+             JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0 AND s.is_invalid = 0
              WHERE sp.player_id = p.id AND sp.is_winner = 1) AS wins
         FROM players p
         ORDER BY p.is_self DESC, plays DESC, p.name COLLATE NOCASE

@@ -23,6 +23,10 @@ interface SessionDao {
      * this a single prepared statement instead of a hand-assembled one.
      *
      * Drafts are excluded everywhere: an unfinished timer session is not a play yet.
+     *
+     * A play flagged as invalid is not: it is out of every statistic but stays in the
+     * log, because it is a record of an evening that happened and the only way back to
+     * the switch that unflags it.
      */
     @Query(
         """
@@ -173,11 +177,16 @@ interface SessionDao {
     @Query("SELECT * FROM session_modes")
     suspend fun getAllSessionModes(): List<SessionModeEntity>
 
-    /** Prefills the duration field with what this game actually takes at this table. */
+    /**
+     * Prefills the duration field with what this game actually takes at this table.
+     *
+     * An average, so it obeys the rule every average in the app obeys: a play the table
+     * set up or played wrongly is left out of it.
+     */
     @Query(
         """
         SELECT AVG(duration_minutes) FROM sessions
-        WHERE game_id = :gameId AND is_draft = 0 AND is_incomplete = 0
+        WHERE game_id = :gameId AND is_draft = 0 AND is_invalid = 0 AND is_incomplete = 0
         """
     )
     suspend fun averageDurationFor(gameId: Long): Double?

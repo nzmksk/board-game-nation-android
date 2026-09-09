@@ -76,6 +76,7 @@ object DatabaseTestFixture {
         isIncomplete: Boolean = false,
         isTeaching: Boolean = false,
         isDraft: Boolean = false,
+        isInvalid: Boolean = false,
         isCooperative: Boolean = false
     ) = SessionEntity(
         id = id,
@@ -91,6 +92,7 @@ object DatabaseTestFixture {
         },
         isTeachingGame = isTeaching,
         isDraft = isDraft,
+        isInvalid = isInvalid,
         isCooperative = isCooperative,
         createdAt = NOW,
         updatedAt = NOW
