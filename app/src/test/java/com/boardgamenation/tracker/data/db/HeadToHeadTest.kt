@@ -49,13 +49,7 @@ class HeadToHeadTest {
      * of them won, which is what a tie for first looks like in the data. An [abandoned]
      * play is one they started and never finished.
      */
-    private suspend fun record(
-        opponentId: Long,
-        wins: Int,
-        losses: Int,
-        draws: Int = 0,
-        abandoned: Int = 0
-    ) {
+    private suspend fun record(opponentId: Long, wins: Int, losses: Int, draws: Int = 0, abandoned: Int = 0) {
         repeat(wins + losses + draws + abandoned) { index ->
             val incomplete = index >= wins + losses + draws
             val sessionId = db.sessionDao().insertSession(
@@ -98,8 +92,7 @@ class HeadToHeadTest {
         )
     }
 
-    private suspend fun recordAgainst(name: String) =
-        db.statsDao().observeHeadToHead().first().single { it.opponentName == name }
+    private suspend fun recordAgainst(name: String) = db.statsDao().observeHeadToHead().first().single { it.opponentName == name }
 
     private suspend fun names() = db.statsDao().observeHeadToHead().first().map { it.opponentName }
 
