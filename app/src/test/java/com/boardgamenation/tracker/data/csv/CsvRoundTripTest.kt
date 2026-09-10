@@ -446,6 +446,53 @@ class CsvRoundTripTest {
         assertTrue("every side comes back", restored.all { !it.team.isNullOrBlank() })
     }
 
+    /**
+     * A `.db` backup carries the flag because it carries the column; the CSV archive is a
+     * schema of its own and would drop it silently, handing the user back an evening that
+     * had been excluded from their statistics and now counts again.
+     */
+    @Test
+    fun `a play flagged as invalid comes back flagged`() = runTest {
+        populate()
+        val flagged = db.sessionDao().getAllSessions().first()
+        db.sessionDao().updateSession(flagged.copy(isInvalid = true))
+        val files = exporter.buildFiles()
+        maintenance.wipeUserData()
+
+        importer.import(files, ImportMode.REPLACE)
+
+        val restored = db.sessionDao().getAllSessions()
+        assertEquals(listOf(flagged.playedOn), restored.filter { it.isInvalid }.map { it.playedOn })
+    }
+
+    /** An archive exported before the column existed had nothing flagged in it. */
+    @Test
+    fun `an archive with no is_invalid column imports as nothing flagged`() = runTest {
+        populate()
+        val expected = db.sessionDao().count()
+        val files = exporter.buildFiles().toMutableMap()
+        files[CsvSchema.SESSIONS] = files.getValue(CsvSchema.SESSIONS).withoutColumn("is_invalid")
+        maintenance.wipeUserData()
+
+        val result = importer.import(files, ImportMode.REPLACE)
+
+        assertTrue(result.errors.isEmpty())
+        assertEquals(expected, db.sessionDao().count())
+        assertTrue(db.sessionDao().getAllSessions().none { it.isInvalid })
+    }
+
+    /**
+     * Rewrites a file without one column, the way an older exporter never wrote it.
+     * Re-serialised from the parsed rows rather than cut out of the text, so a value
+     * carrying a comma is not quietly halved on the way through.
+     */
+    private fun String.withoutColumn(column: String): String {
+        val table = CsvParser.parse(this)
+        val kept = table.headers.filterNot { it == column }
+        return Csv.BOM + (listOf(Csv.row(kept)) + table.rows.map { row -> Csv.row(kept.map(row::string)) })
+            .joinToString(Csv.CRLF, postfix = Csv.CRLF)
+    }
+
     @Test
     fun `every export file carries a byte order mark and CRLF endings`() = runTest {
         populate()

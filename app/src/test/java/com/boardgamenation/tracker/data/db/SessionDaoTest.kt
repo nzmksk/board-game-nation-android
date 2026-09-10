@@ -687,4 +687,38 @@ class SessionDaoTest {
         repository.save(form(listOf(me to 10.0, ben to 8.0)))
         assertEquals(1, db.playerDao().appearanceCount(ben))
     }
+
+    // --- invalid plays --------------------------------------------------------------
+
+    @Test
+    fun `the invalid flag survives a save and comes back on the form`() = runTest {
+        val id = repository.save(form(listOf(me to 10.0, ben to 8.0)).copy(isInvalid = true))
+
+        assertTrue(db.sessionDao().getSession(id)!!.isInvalid)
+        assertTrue(repository.loadForm(id)!!.isInvalid)
+    }
+
+    /** And it comes back off, so the switch undoes itself rather than only setting. */
+    @Test
+    fun `unflagging a play writes the flag back off`() = runTest {
+        val id = repository.save(form(listOf(me to 10.0, ben to 8.0)).copy(isInvalid = true))
+        repository.save(repository.loadForm(id)!!.copy(isInvalid = false))
+
+        assertFalse(db.sessionDao().getSession(id)!!.isInvalid)
+    }
+
+    /**
+     * The one list a flagged play stays in. It is a record of an evening that happened,
+     * and hiding it would take away the only route back to the switch that unflags it.
+     */
+    @Test
+    fun `a flagged play stays in the session list`() = runTest {
+        val id = repository.save(form(listOf(me to 10.0, ben to 8.0)).copy(isInvalid = true))
+
+        val listed = repository.observeSessions(SessionFilter()).first().single()
+
+        assertEquals(id, listed.id)
+        // Badged, so the row does not read as an ordinary result that counts for nothing.
+        assertTrue(listed.isInvalid)
+    }
 }

@@ -62,8 +62,8 @@ object CsvSchema {
     val sessionColumns = listOf(
         "id", "game_id", "played_on", "started_at", "ended_at", "duration_minutes",
         "player_count", "location", "is_cooperative", "coop_outcome", "mode",
-        "end_condition", "end_reason", "is_incomplete", "is_teaching_game", "paused_ms",
-        "photo_uri", "notes", "created_at", "updated_at"
+        "end_condition", "end_reason", "is_incomplete", "is_teaching_game", "is_invalid",
+        "paused_ms", "photo_uri", "notes", "created_at", "updated_at"
     )
 
     val sessionPlayerColumns = listOf(

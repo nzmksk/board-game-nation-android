@@ -20,6 +20,12 @@ import kotlinx.coroutines.flow.Flow
  * Deliberately free of window functions: minSdk 26 ships SQLite 3.19, which predates
  * them. The two genuinely sequential metrics (streaks) return a compact distinct-period
  * list that the repository walks, rather than a full table scan in Kotlin.
+ *
+ * Two flags are filtered out of every query here without exception, and they are the
+ * only ones that are. `is_draft` is not a play yet; `is_invalid` is a play of a game
+ * the table got wrong, which is a play of no game at all. Everything else -- abandoned,
+ * taught, stopped early by a rule -- really happened and is excluded only from the
+ * particular figures it would distort.
  */
 @Dao
 interface StatsDao {
@@ -110,7 +116,7 @@ interface StatsDao {
         SELECT g.title AS label, julianday('now') - julianday(g.date_added) AS value
         FROM games g
         WHERE g.status IN ('OWNED', 'LENT_OUT')
-          AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0)
+          AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0)
         ORDER BY g.date_added ASC
         """
     )
@@ -127,19 +133,19 @@ interface StatsDao {
 
     // --- plays --------------------------------------------------------------------
 
-    @Query("SELECT COUNT(*) FROM sessions WHERE is_draft = 0")
+    @Query("SELECT COUNT(*) FROM sessions WHERE is_draft = 0 AND is_invalid = 0")
     fun observeTotalPlays(): Flow<Int>
 
-    @Query("SELECT COALESCE(SUM(duration_minutes), 0) FROM sessions WHERE is_draft = 0")
+    @Query("SELECT COALESCE(SUM(duration_minutes), 0) FROM sessions WHERE is_draft = 0 AND is_invalid = 0")
     fun observeTotalMinutes(): Flow<Int>
 
-    @Query("SELECT COUNT(DISTINCT game_id) FROM sessions WHERE is_draft = 0")
+    @Query("SELECT COUNT(DISTINCT game_id) FROM sessions WHERE is_draft = 0 AND is_invalid = 0")
     fun observeDistinctGamesPlayed(): Flow<Int>
 
     @Query(
         """
         SELECT strftime('%Y-%m', played_on) AS label, COUNT(*) * 1.0 AS value
-        FROM sessions WHERE is_draft = 0
+        FROM sessions WHERE is_draft = 0 AND is_invalid = 0
         GROUP BY label ORDER BY label
         """
     )
@@ -148,7 +154,7 @@ interface StatsDao {
     @Query(
         """
         SELECT strftime('%w', played_on) AS label, COUNT(*) * 1.0 AS value
-        FROM sessions WHERE is_draft = 0
+        FROM sessions WHERE is_draft = 0 AND is_invalid = 0
         GROUP BY label ORDER BY label
         """
     )
@@ -158,7 +164,7 @@ interface StatsDao {
         """
         SELECT g.title AS label, COUNT(*) * 1.0 AS value
         FROM sessions s JOIN games g ON g.id = s.game_id
-        WHERE s.is_draft = 0
+        WHERE s.is_draft = 0 AND s.is_invalid = 0
         GROUP BY g.id ORDER BY value DESC, g.title COLLATE NOCASE
         LIMIT :limit
         """
@@ -171,14 +177,14 @@ interface StatsDao {
             s.id, s.game_id, g.title AS game_title, g.thumbnail_path,
             s.played_on, s.duration_minutes, s.player_count, s.location,
             s.is_cooperative, (s.coop_outcome = 'WIN') AS coop_won, s.mode,
-            s.is_incomplete, s.is_teaching_game, s.end_reason,
+            s.is_incomplete, s.is_teaching_game, s.is_invalid, s.end_reason,
             (
                 SELECT GROUP_CONCAT(p.name, ', ') FROM session_players sp
                 JOIN players p ON p.id = sp.player_id
                 WHERE sp.session_id = s.id AND sp.is_winner = 1
             ) AS winner_names
         FROM sessions s JOIN games g ON g.id = s.game_id
-        WHERE s.is_draft = 0 AND s.is_incomplete = 0
+        WHERE s.is_draft = 0 AND s.is_invalid = 0 AND s.is_incomplete = 0
         ORDER BY CASE WHEN :longest = 1 THEN -s.duration_minutes ELSE s.duration_minutes END
         LIMIT :limit
         """
@@ -197,7 +203,7 @@ interface StatsDao {
             (g.min_playtime_minutes + g.max_playtime_minutes) / 2.0 AS stated_avg,
             COUNT(*) AS play_count
         FROM sessions s JOIN games g ON g.id = s.game_id
-        WHERE s.is_draft = 0 AND s.is_incomplete = 0 AND s.is_teaching_game = 0
+        WHERE s.is_draft = 0 AND s.is_invalid = 0 AND s.is_incomplete = 0 AND s.is_teaching_game = 0
           AND g.min_playtime_minutes IS NOT NULL AND g.max_playtime_minutes IS NOT NULL
         GROUP BY g.id
         HAVING COUNT(*) >= :minPlays
@@ -212,7 +218,7 @@ interface StatsDao {
     @Query(
         """
         SELECT DISTINCT strftime('%Y-%W', played_on) AS label, 1.0 AS value
-        FROM sessions WHERE is_draft = 0
+        FROM sessions WHERE is_draft = 0 AND is_invalid = 0
         ORDER BY label DESC
         """
     )
@@ -221,7 +227,7 @@ interface StatsDao {
     @Query(
         """
         SELECT DISTINCT played_on AS label, 1.0 AS value
-        FROM sessions WHERE is_draft = 0
+        FROM sessions WHERE is_draft = 0 AND is_invalid = 0
         ORDER BY label DESC
         """
     )
@@ -235,12 +241,12 @@ interface StatsDao {
         """
         SELECT COUNT(*) FROM (
             SELECT s.game_id AS gid, COUNT(*) AS plays
-            FROM sessions s WHERE s.is_draft = 0 GROUP BY s.game_id
+            FROM sessions s WHERE s.is_draft = 0 AND s.is_invalid = 0 GROUP BY s.game_id
         ) t
         WHERE t.plays >= (
             SELECT COUNT(*) FROM (
                 SELECT s2.game_id AS gid2, COUNT(*) AS plays2
-                FROM sessions s2 WHERE s2.is_draft = 0 GROUP BY s2.game_id
+                FROM sessions s2 WHERE s2.is_draft = 0 AND s2.is_invalid = 0 GROUP BY s2.game_id
             ) t2
             WHERE t2.plays2 >= t.plays
         )
@@ -280,7 +286,7 @@ interface StatsDao {
                 SUM(sp.is_winner) * 1.0 / COUNT(*) AS chance
             FROM sessions s
             JOIN session_players sp ON sp.session_id = s.id
-            WHERE s.is_draft = 0 AND s.is_incomplete = 0 AND s.is_cooperative = 0
+            WHERE s.is_draft = 0 AND s.is_invalid = 0 AND s.is_incomplete = 0 AND s.is_cooperative = 0
               AND s.game_id = :gameId
             GROUP BY s.id
             HAVING SUM(sp.turn_order = 1) = 1
@@ -301,7 +307,7 @@ interface StatsDao {
             c.total_cost / COUNT(s.id) AS cost_per_play
         FROM games g
         JOIN game_costing c ON c.game_id = g.id
-        JOIN sessions s ON s.game_id = g.id AND s.is_draft = 0
+        JOIN sessions s ON s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0
         WHERE c.total_cost IS NOT NULL AND c.total_cost > 0
           AND g.status IN ('OWNED', 'LENT_OUT')
         GROUP BY g.id
@@ -320,7 +326,7 @@ interface StatsDao {
             NULLIF((SELECT COUNT(*) FROM sessions s2
                     JOIN games g2 ON g2.id = s2.game_id
                     JOIN game_costing c2 ON c2.game_id = g2.id
-                    WHERE s2.is_draft = 0 AND c2.total_cost IS NOT NULL
+                    WHERE s2.is_draft = 0 AND s2.is_invalid = 0 AND c2.total_cost IS NOT NULL
                       AND g2.status IN ('OWNED', 'LENT_OUT')), 0)
         FROM games g
         JOIN game_costing c ON c.game_id = g.id
@@ -355,7 +361,7 @@ interface StatsDao {
         JOIN game_costing c ON c.game_id = g.id
         WHERE c.total_cost IS NOT NULL AND c.total_cost > 0
           AND g.status IN ('OWNED', 'LENT_OUT')
-          AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0)
+          AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0)
         ORDER BY c.total_cost DESC
         LIMIT :limit
         """
@@ -373,7 +379,7 @@ interface StatsDao {
             AVG(sp.score) AS avg_score
         FROM players p
         JOIN session_players sp ON sp.player_id = p.id
-        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0
+        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0 AND s.is_invalid = 0
         WHERE (:gameId IS NULL OR s.game_id = :gameId)
         GROUP BY p.id
         HAVING COUNT(sp.id) > 0
@@ -413,7 +419,7 @@ interface StatsDao {
         FROM session_players opp
         JOIN players p ON p.id = opp.player_id
         JOIN sessions s ON s.id = opp.session_id
-            AND s.is_draft = 0 AND s.is_cooperative = 0 AND s.is_incomplete = 0
+            AND s.is_draft = 0 AND s.is_invalid = 0 AND s.is_cooperative = 0 AND s.is_incomplete = 0
         JOIN session_players self ON self.session_id = s.id
         JOIN players sp2 ON sp2.id = self.player_id AND sp2.is_self = 1
         WHERE p.is_self = 0
@@ -436,7 +442,7 @@ interface StatsDao {
         """
         SELECT g.title AS label, AVG(sp.score) AS value
         FROM session_players sp
-        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0
+        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0 AND s.is_invalid = 0
             AND COALESCE(s.end_condition, 'STANDARD') = 'STANDARD'
         JOIN games g ON g.id = s.game_id
         WHERE sp.player_id = :playerId AND sp.score IS NOT NULL
@@ -467,7 +473,7 @@ interface StatsDao {
                COALESCE(SUM(sp.is_winner), 0) AS wins,
                COALESCE(SUM(sp.is_winner), 0) * 100.0 / COUNT(*) AS win_rate
         FROM session_players sp
-        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0 AND s.is_cooperative = 0
+        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0 AND s.is_invalid = 0 AND s.is_cooperative = 0
         JOIN games g ON g.id = s.game_id
         WHERE sp.player_id = :playerId
         GROUP BY g.id
@@ -501,7 +507,7 @@ interface StatsDao {
                COUNT(*) AS plays,
                CASE WHEN g.high_score_wins = 1 THEN MAX(sp.score) ELSE MIN(sp.score) END AS best_score
         FROM session_players sp
-        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0
+        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0 AND s.is_invalid = 0
             AND COALESCE(s.end_condition, 'STANDARD') = 'STANDARD'
         JOIN games g ON g.id = s.game_id
         WHERE sp.player_id = :playerId AND sp.score IS NOT NULL
@@ -536,21 +542,21 @@ interface StatsDao {
         """
         SELECT sp.player_id
         FROM session_players sp
-        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0
+        JOIN sessions s ON s.id = sp.session_id AND s.is_draft = 0 AND s.is_invalid = 0
             AND COALESCE(s.end_condition, 'STANDARD') = 'STANDARD'
         JOIN games g ON g.id = s.game_id
         WHERE sp.session_id = :sessionId AND sp.score IS NOT NULL
           AND CASE WHEN g.high_score_wins = 1
               THEN sp.score > (
                   SELECT MAX(p.score) FROM session_players p
-                  JOIN sessions ps ON ps.id = p.session_id AND ps.is_draft = 0
+                  JOIN sessions ps ON ps.id = p.session_id AND ps.is_draft = 0 AND ps.is_invalid = 0
                       AND COALESCE(ps.end_condition, 'STANDARD') = 'STANDARD'
                   WHERE p.player_id = sp.player_id AND ps.game_id = s.game_id
                     AND p.session_id <> sp.session_id AND p.score IS NOT NULL
               )
               ELSE sp.score < (
                   SELECT MIN(p.score) FROM session_players p
-                  JOIN sessions ps ON ps.id = p.session_id AND ps.is_draft = 0
+                  JOIN sessions ps ON ps.id = p.session_id AND ps.is_draft = 0 AND ps.is_invalid = 0
                       AND COALESCE(ps.end_condition, 'STANDARD') = 'STANDARD'
                   WHERE p.player_id = sp.player_id AND ps.game_id = s.game_id
                     AND p.session_id <> sp.session_id AND p.score IS NOT NULL

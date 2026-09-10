@@ -44,7 +44,7 @@ object GameQueryBuilder {
         JOIN game_costing cost ON cost.game_id = g.id
         LEFT JOIN (
             SELECT game_id, COUNT(*) AS play_count, MAX(played_on) AS last_played
-            FROM sessions WHERE is_draft = 0 GROUP BY game_id
+            FROM sessions WHERE is_draft = 0 AND is_invalid = 0 GROUP BY game_id
         ) pc ON pc.game_id = g.id
     """
 

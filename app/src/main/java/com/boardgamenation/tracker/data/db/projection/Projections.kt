@@ -67,6 +67,13 @@ data class SessionListItem(
     @ColumnInfo(name = "is_incomplete") val isIncomplete: Boolean,
     @ColumnInfo(name = "is_teaching_game") val isTeachingGame: Boolean,
 
+    /**
+     * The play the table got wrong. Carried into the list because the row is the only
+     * place it is ever seen: every statistic has already dropped it, so without a badge
+     * here it would read as an ordinary result that mysteriously counts for nothing.
+     */
+    @ColumnInfo(name = "is_invalid") val isInvalid: Boolean,
+
     /** Non-null only for a play that ended early; shown as a badge on the row. */
     @ColumnInfo(name = "end_reason") val endReason: String?,
 

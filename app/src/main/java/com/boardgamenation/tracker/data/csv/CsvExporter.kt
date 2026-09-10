@@ -206,6 +206,7 @@ class CsvExporter @Inject constructor(
                         Csv.formatBool(s.isCooperative), s.coopOutcome?.name, s.mode,
                         s.endCondition?.name, s.endReason,
                         Csv.formatBool(s.isIncomplete), Csv.formatBool(s.isTeachingGame),
+                        Csv.formatBool(s.isInvalid),
                         s.pausedMs.toString(), s.photoUri, s.notes,
                         s.createdAt.toString(), s.updatedAt.toString()
                     )

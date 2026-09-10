@@ -721,6 +721,40 @@ class MigrationTest {
         )
     }
 
+    // --- invalid plays --------------------------------------------------------------
+
+    /**
+     * Nothing is backfilled. Only the user knows which evening was played with the rules
+     * misread, so every play that existed before the flag did keeps counting.
+     */
+    @Test
+    fun `plays written before the flag still count`() = runTest {
+        seedAt(13) { db ->
+            insertGameV11(db, id = 1, title = "Wingspan", price = null)
+            insertSessionV12(db, id = 1, mode = null)
+        }
+
+        val db = openMigrated()
+
+        assertFalse(db.sessionDao().getSession(1)!!.isInvalid)
+        assertEquals(1, db.statsDao().observeTotalPlays().first())
+    }
+
+    /** And the flag can be set afterwards, which is what the column was added for. */
+    @Test
+    fun `a play can be flagged after the upgrade`() = runTest {
+        seedAt(13) { db ->
+            insertGameV11(db, id = 1, title = "Wingspan", price = null)
+            insertSessionV12(db, id = 1, mode = null)
+        }
+
+        val db = openMigrated()
+        val session = db.sessionDao().getSession(1)!!
+        db.sessionDao().updateSession(session.copy(isInvalid = true))
+
+        assertTrue(db.sessionDao().getSession(1)!!.isInvalid)
+    }
+
     // --- integrity ------------------------------------------------------------------
 
     @Test

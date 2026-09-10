@@ -495,6 +495,25 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
                 )
             }
 
+            // Carries a line of explanation the teaching toggle above it does not need.
+            // What the switch does is drastic and invisible -- the play stops counting
+            // everywhere at once -- and a user who reads it as "we lost" or "it does not
+            // matter" would quietly delete an evening from their own history.
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    ToggleRow(
+                        label = stringResource(R.string.session_edit_invalid),
+                        checked = state.form.isInvalid,
+                        onChange = { value -> viewModel.update { it.copy(isInvalid = value) } }
+                    )
+                    Text(
+                        text = stringResource(R.string.session_edit_invalid_help),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             item {
                 OutlinedTextField(
                     value = state.form.notes.orEmpty(),

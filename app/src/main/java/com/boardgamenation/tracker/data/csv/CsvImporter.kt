@@ -555,6 +555,9 @@ class CsvImporter @Inject constructor(
                     endReason = row.string("end_reason"),
                     isIncomplete = endCondition == SessionEndCondition.ABANDONED,
                     isTeachingGame = row.boolean("is_teaching_game"),
+                    // Absent from an archive exported before the flag existed, and false
+                    // is the truth about every row in one: nothing had been flagged yet.
+                    isInvalid = row.boolean("is_invalid"),
                     isDraft = false,
                     pausedMs = row.long("paused_ms") ?: 0L,
                     photoUri = row.string("photo_uri"),
