@@ -237,6 +237,13 @@
     <string name="session_edit_invalid_help">Wrong setup or a rule misread. The play stays in your log and counts towards nothing.</string>
     <string name="session_edit_coop_win">We won</string>
     <string name="session_edit_coop_loss">We lost</string>
+    <string name="session_edit_objectives">Objectives</string>
+    <string name="session_edit_objectives_help">These games are nearly always won. What each objective cost is the part worth keeping.</string>
+    <string name="session_edit_objective">Objective</string>
+    <string name="session_edit_objective_hint">e.g. The locked safe, Chapter 2, Lead 41</string>
+    <string name="session_edit_objective_hints">Hints</string>
+    <string name="session_edit_objective_attempts">Attempts</string>
+    <string name="session_edit_objective_remove">Remove objective</string>
     <string name="session_edit_mode">Mode or configuration</string>
     <string name="session_edit_mode_hint">e.g. Championship, Legends, Weather</string>
     <string name="session_edit_mode_previous">Previously played</string>
