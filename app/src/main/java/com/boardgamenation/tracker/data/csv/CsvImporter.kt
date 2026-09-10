@@ -275,7 +275,6 @@ class CsvImporter @Inject constructor(
                     maxPlaytimeMinutes = row.int("max_playtime_minutes"),
                     weight = row.double("weight"),
                     bggRating = row.double("bgg_rating"),
-                    publisher = row.string("publisher"),
                     thumbnailPath = row.string("thumbnail_path"),
                     dateAdded = row.requireString("date_added"),
                     price = row.double("price"),

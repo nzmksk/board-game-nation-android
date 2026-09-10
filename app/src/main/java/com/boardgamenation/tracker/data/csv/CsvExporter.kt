@@ -155,7 +155,7 @@ class CsvExporter @Inject constructor(
                         Csv.formatInt(g.maxPlayers), g.bestPlayerCount,
                         Csv.formatInt(g.minPlaytimeMinutes), Csv.formatInt(g.maxPlaytimeMinutes),
                         Csv.formatDouble(g.weight), Csv.formatDouble(g.bggRating),
-                        g.publisher, g.thumbnailPath, g.dateAdded,
+                        g.thumbnailPath, g.dateAdded,
                         Csv.formatDouble(g.price), g.currency, g.purchaseNote,
                         g.status.name, Csv.formatInt(g.wishlistPriority),
                         g.lentTo, g.lentDate,

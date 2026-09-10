@@ -133,7 +133,6 @@ class DevFixtures @Inject constructor(
                     maxPlaytimeMinutes = spec.maxTime,
                     weight = spec.weight,
                     bggRating = 6.0 + (index % 25) / 10.0,
-                    publisher = spec.publisher,
                     dateAdded = DateUtils.toIso(today.minusDays(daysAgo)),
                     price = spec.price,
                     currency = "MYR",
@@ -147,7 +146,8 @@ class DevFixtures @Inject constructor(
 
             val tagIds = spec.mechanics.map { tagDao.upsertByName(it, TagKind.MECHANIC) } +
                 spec.categories.map { tagDao.upsertByName(it, TagKind.CATEGORY) } +
-                listOf(tagDao.upsertByName(spec.designer, TagKind.DESIGNER))
+                listOf(tagDao.upsertByName(spec.designer, TagKind.DESIGNER)) +
+                listOf(tagDao.upsertByName(spec.publisher, TagKind.PUBLISHER))
             tagDao.insertLinks(tagIds.map { GameTagCrossRef(gameId = id, tagId = it) })
         }
 

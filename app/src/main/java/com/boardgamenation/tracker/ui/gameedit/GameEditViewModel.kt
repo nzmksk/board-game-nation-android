@@ -227,10 +227,6 @@ class GameEditViewModel @Inject constructor(
                 maxPlaytimeMinutes = current.maxPlaytime.toIntOrNull(),
                 weight = current.weight.toDoubleOrNull(),
                 bggRating = current.bggRating.toDoubleOrNull(),
-                // The single-publisher column the form no longer edits. Carried across
-                // untouched so an edit does not erase what is still the only copy of it
-                // until the migration moves it into the tag table.
-                publisher = existing?.publisher,
                 thumbnailPath = existing?.thumbnailPath,
                 dateAdded = current.dateAdded.ifBlank { DateUtils.toIso(clock.today()) },
                 price = current.price.toDoubleOrNull(),
