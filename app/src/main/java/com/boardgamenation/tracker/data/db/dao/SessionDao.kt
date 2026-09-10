@@ -10,6 +10,7 @@ import com.boardgamenation.tracker.data.db.entity.BACKFILL_SESSION_MODES_SQL
 import com.boardgamenation.tracker.data.db.entity.SessionEntity
 import com.boardgamenation.tracker.data.db.entity.SessionExpansionEntity
 import com.boardgamenation.tracker.data.db.entity.SessionModeEntity
+import com.boardgamenation.tracker.data.db.entity.SessionObjectiveEntity
 import com.boardgamenation.tracker.data.db.entity.SessionPlayerEntity
 import com.boardgamenation.tracker.data.db.projection.SessionListItem
 import com.boardgamenation.tracker.data.db.projection.SessionParticipant
@@ -178,6 +179,25 @@ interface SessionDao {
     suspend fun getAllSessionModes(): List<SessionModeEntity>
 
     /**
+     * What each objective of one play cost, in the order the table worked through them.
+     *
+     * Ordered by the column that remembers that order, with the objective itself only
+     * breaking ties -- the second puzzle of a case is the second one whatever it is
+     * called.
+     */
+    @Query(
+        """
+        SELECT * FROM session_objectives
+        WHERE session_id = :sessionId
+        ORDER BY sort_order, objective
+        """
+    )
+    suspend fun getObjectives(sessionId: Long): List<SessionObjectiveEntity>
+
+    @Query("SELECT * FROM session_objectives")
+    suspend fun getAllSessionObjectives(): List<SessionObjectiveEntity>
+
+    /**
      * Prefills the duration field with what this game actually takes at this table.
      *
      * An average, so it obeys the rule every average in the app obeys: a play the table
@@ -317,6 +337,12 @@ interface SessionDao {
     @Query("DELETE FROM session_modes WHERE session_id = :sessionId")
     suspend fun clearModes(sessionId: Long)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertObjectives(rows: List<SessionObjectiveEntity>)
+
+    @Query("DELETE FROM session_objectives WHERE session_id = :sessionId")
+    suspend fun clearObjectives(sessionId: Long)
+
     /**
      * Hands a play that has a configuration but no rows for it the one-element set it
      * always meant. See [BACKFILL_SESSION_MODES_SQL]: this is the import's half of what
@@ -334,7 +360,8 @@ interface SessionDao {
         session: SessionEntity,
         participants: List<SessionPlayerEntity>,
         expansionIds: List<Long>,
-        modes: List<String>
+        modes: List<String>,
+        objectives: List<SessionObjectiveEntity>
     ): Long {
         val id = if (session.id == 0L) {
             insertSession(session)
@@ -350,6 +377,12 @@ interface SessionDao {
         insertModes(
             modes.mapIndexed { index, mode ->
                 SessionModeEntity(sessionId = id, mode = mode, sortOrder = index)
+            }
+        )
+        clearObjectives(id)
+        insertObjectives(
+            objectives.mapIndexed { index, objective ->
+                objective.copy(sessionId = id, sortOrder = index)
             }
         )
         return id
@@ -386,6 +419,9 @@ interface SessionDao {
 
     @Query("SELECT COUNT(*) FROM session_modes")
     suspend fun countModes(): Int
+
+    @Query("SELECT COUNT(*) FROM session_objectives")
+    suspend fun countObjectives(): Int
 
     @Query("DELETE FROM sessions")
     suspend fun deleteAll()

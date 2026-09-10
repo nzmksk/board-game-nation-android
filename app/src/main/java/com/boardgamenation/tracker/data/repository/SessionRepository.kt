@@ -231,7 +231,15 @@ class SessionRepository @Inject constructor(
             )
         }
 
-        val id = sessionDao.saveComplete(entity, rows, form.expansionIds, SessionModes.clean(form.modes))
+        val id = sessionDao.saveComplete(
+            session = entity,
+            participants = rows,
+            expansionIds = form.expansionIds,
+            modes = SessionModes.clean(form.modes),
+            // Nothing on the form records an objective yet; the scoring mode that does is
+            // next. The write path is here so the table cannot be reached any other way.
+            objectives = emptyList()
+        )
 
         // The scoring mode the user actually used is the one worth remembering.
         gameDao.getGame(form.gameId)?.let { game ->
