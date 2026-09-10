@@ -127,10 +127,13 @@ class CsvRoundTripTest {
 
         val trading = db.tagDao().upsertByName("Trading", TagKind.MECHANIC)
         val economic = db.tagDao().upsertByName("Economic", TagKind.CATEGORY)
+        // A comma in a company name, which is a single publisher rather than two.
+        val kosmos = db.tagDao().upsertByName("Kosmos, GmbH", TagKind.PUBLISHER)
         db.tagDao().insertLinks(
             listOf(
                 GameTagCrossRef(catan, trading),
                 GameTagCrossRef(catan, economic),
+                GameTagCrossRef(catan, kosmos),
                 GameTagCrossRef(wingspan, economic)
             )
         )
@@ -415,6 +418,22 @@ class CsvRoundTripTest {
         val expansion = db.gameDao().getGameByTitle("Catan: Seafarers")!!
         val base = db.gameDao().getGameByTitle("Catan")!!
         assertEquals(base.id, expansion.baseGameId)
+    }
+
+    @Test
+    fun `publishers survive the round trip as their own kind`() = runTest {
+        populate()
+        val files = exporter.buildFiles()
+        maintenance.wipeUserData()
+        importer.import(files, ImportMode.REPLACE)
+
+        val catan = db.gameDao().getGameByTitle("Catan")!!
+        assertEquals(
+            listOf("Kosmos, GmbH"),
+            db.tagDao().observeForGame(catan.id).first()
+                .filter { it.kind == TagKind.PUBLISHER }
+                .map { it.name }
+        )
     }
 
     @Test
