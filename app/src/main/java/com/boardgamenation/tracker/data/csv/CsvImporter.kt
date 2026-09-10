@@ -23,6 +23,7 @@ import com.boardgamenation.tracker.data.db.entity.RubricEntity
 import com.boardgamenation.tracker.data.db.entity.SessionEntity
 import com.boardgamenation.tracker.data.db.entity.SessionExpansionEntity
 import com.boardgamenation.tracker.data.db.entity.SessionModeEntity
+import com.boardgamenation.tracker.data.db.entity.SessionObjectiveEntity
 import com.boardgamenation.tracker.data.db.entity.SessionPlayerEntity
 import com.boardgamenation.tracker.data.repository.DataMaintenanceRepository
 import com.boardgamenation.tracker.di.IoDispatcher
@@ -204,6 +205,12 @@ class CsvImporter @Inject constructor(
                 written
             )
             importSessionModes(files[CsvSchema.SESSION_MODES], sessionIds, errors, written)
+            importSessionObjectives(
+                files[CsvSchema.SESSION_OBJECTIVES],
+                sessionIds,
+                errors,
+                written
+            )
             val rubricIds = importRubrics(files[CsvSchema.RUBRICS], mode, errors, written)
             val criterionIds = importCriteria(
                 files[CsvSchema.RUBRIC_CRITERIA],
@@ -726,6 +733,52 @@ class CsvImporter @Inject constructor(
         if (rows.isNotEmpty()) sessionDao.insertModes(rows)
         sessionDao.backfillModesFromSessions()
         written[CsvSchema.SESSION_MODES] = rows.size
+    }
+
+    /**
+     * What each objective of a play cost.
+     *
+     * No backfill follows this one, unlike the configurations above. There is nowhere for
+     * an older archive to have kept a hint count, so an archive taken before the file
+     * existed restores plays with no objectives on them -- which is the truth about every
+     * play in one. The user can open such a play and say what it cost; the importer cannot
+     * invent it.
+     *
+     * The counts are held to what they can mean on the way in as well as on the way out,
+     * because an archive is a text file somebody may well have edited.
+     */
+    private suspend fun importSessionObjectives(
+        text: String?,
+        sessionIds: Map<Long, Long>,
+        errors: MutableList<CsvError>,
+        written: MutableMap<String, Int>
+    ) {
+        val table = text?.let { CsvParser.parse(it) } ?: return
+        val rows = mutableListOf<SessionObjectiveEntity>()
+        table.rows.forEach { row ->
+            try {
+                val sessionId = sessionIds[row.long("session_id")]
+                val objective = row.string("objective")?.trim()
+                if (sessionId == null || objective.isNullOrEmpty()) {
+                    errors += CsvError(
+                        row.lineNumber,
+                        "session_objectives: unknown session or empty objective, skipped"
+                    )
+                    return@forEach
+                }
+                rows += SessionObjectiveEntity(
+                    sessionId = sessionId,
+                    objective = objective,
+                    hintsUsed = (row.int("hints_used") ?: 0).coerceAtLeast(0),
+                    attempts = (row.int("attempts") ?: 1).coerceAtLeast(1),
+                    sortOrder = row.int("sort_order") ?: 0
+                )
+            } catch (e: Exception) {
+                errors += CsvError(row.lineNumber, "session_objectives: ${e.message}")
+            }
+        }
+        if (rows.isNotEmpty()) sessionDao.insertObjectives(rows)
+        written[CsvSchema.SESSION_OBJECTIVES] = rows.size
     }
 
     private suspend fun importRubrics(

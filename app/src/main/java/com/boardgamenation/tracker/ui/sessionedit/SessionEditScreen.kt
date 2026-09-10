@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -82,6 +83,7 @@ import com.boardgamenation.tracker.domain.model.ScoringMode
 import com.boardgamenation.tracker.domain.model.Seating
 import com.boardgamenation.tracker.domain.model.SessionEndCondition
 import com.boardgamenation.tracker.domain.model.SessionModes
+import com.boardgamenation.tracker.domain.model.SessionObjective
 import com.boardgamenation.tracker.share.shareImageChooser
 import com.boardgamenation.tracker.ui.components.ConfirmDialog
 import com.boardgamenation.tracker.ui.components.IsoDateField
@@ -270,7 +272,9 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
                 }
             }
 
-            if (state.form.scoringMode == ScoringMode.COOPERATIVE) {
+            // Asked of an investigative play as well as a co-op: the case is cracked or
+            // it is not, and either way the whole table shares the answer.
+            if (state.form.isCooperative) {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
@@ -284,6 +288,22 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
                             label = { Text(stringResource(R.string.session_edit_coop_loss)) }
                         )
                     }
+                }
+            }
+
+            // The record an investigative or escape-room play actually leaves. The result
+            // above says the case was cracked, which it nearly always is; this says what
+            // cracking it cost.
+            if (state.form.hasObjectives) {
+                item { SectionHeader(stringResource(R.string.session_edit_objectives)) }
+                item {
+                    ObjectiveEditor(
+                        objectives = state.form.objectives,
+                        onAdd = viewModel::addObjective,
+                        onRemove = viewModel::removeObjective,
+                        onHints = viewModel::adjustHints,
+                        onAttempts = viewModel::adjustAttempts
+                    )
                 }
             }
 
@@ -590,6 +610,108 @@ fun SessionEditScreen(onBack: () -> Unit, onSaved: (Long, List<String>) -> Unit,
 }
 
 /**
+ * The objectives of one case, each with what it cost.
+ *
+ * Named first and counted afterwards, which is the order the evening happens in: the
+ * table says which puzzle they are on, and the hints and the goes accumulate while they
+ * work at it. Steppers rather than a number field for exactly that reason -- a hint is
+ * taken one at a time, in the middle of playing, and one tap is the whole interaction.
+ *
+ * Nothing is offered back from earlier plays, unlike a configuration. A puzzle belongs to
+ * one case and the next case has different ones.
+ */
+@Composable
+private fun ObjectiveEditor(
+    objectives: List<SessionObjective>,
+    onAdd: (String) -> Unit,
+    onRemove: (String) -> Unit,
+    onHints: (String, Int) -> Unit,
+    onAttempts: (String, Int) -> Unit
+) {
+    var input by remember { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.session_edit_objectives_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = input,
+                onValueChange = { input = it },
+                label = { Text(stringResource(R.string.session_edit_objective)) },
+                placeholder = { Text(stringResource(R.string.session_edit_objective_hint)) },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(8.dp))
+            IconButton(
+                onClick = {
+                    onAdd(input)
+                    input = ""
+                },
+                enabled = input.isNotBlank()
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.action_add))
+            }
+        }
+
+        objectives.forEach { objective ->
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = objective.objective,
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { onRemove(objective.objective) }) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = stringResource(
+                                    R.string.session_edit_objective_remove
+                                )
+                            )
+                        }
+                    }
+                    CounterRow(
+                        label = stringResource(R.string.session_edit_objective_hints),
+                        value = objective.hintsUsed,
+                        onChange = { delta -> onHints(objective.objective, delta) }
+                    )
+                    CounterRow(
+                        label = stringResource(R.string.session_edit_objective_attempts),
+                        value = objective.attempts,
+                        onChange = { delta -> onAttempts(objective.objective, delta) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** One tap up, one tap down. The floor belongs to the caller, which knows what it means. */
+@Composable
+private fun CounterRow(label: String, value: Int, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        IconButton(onClick = { onChange(-1) }) {
+            Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.action_decrease))
+        }
+        Text(value.toString(), style = MaterialTheme.typography.titleSmall)
+        IconButton(onClick = { onChange(1) }) {
+            Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.action_increase))
+        }
+    }
+}
+
+/**
  * The configurations a play was set up with, entered one at a time.
  *
  * A field with an add button rather than a field holding the whole answer, because the
@@ -887,7 +1009,9 @@ private fun ParticipantCard(
                         )
                     }
                 }
-                if (mode != ScoringMode.COOPERATIVE && mode != ScoringMode.TEAM_BASED) {
+                // Nothing to toggle where the result belongs to the table or to a side
+                // rather than to this player.
+                if (!mode.sharesTableOutcome && !mode.recordsSides) {
                     IconButton(onClick = onToggleWinner) {
                         Icon(
                             imageVector = Icons.Filled.EmojiEvents,

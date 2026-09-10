@@ -83,7 +83,20 @@ data class SessionListItem(
     @ColumnInfo(name = "winner_names") val winnerNames: String?,
 
     /** Whoever holds the first seat, or null on a play nobody recorded an order for. */
-    @ColumnInfo(name = "first_player_name") val firstPlayerName: String?
+    @ColumnInfo(name = "first_player_name") val firstPlayerName: String?,
+
+    /**
+     * How many objectives the table worked through, and the hints the lot of them took.
+     *
+     * Counted in SQL beside the row rather than fetched per play, because the list draws
+     * hundreds of rows and this is two subqueries against a primary key.
+     *
+     * Zero objectives is every play that is not an investigative one, which is what keeps
+     * the tally off rows it would mean nothing on.
+     */
+    @ColumnInfo(name = "objective_count") val objectiveCount: Int,
+
+    @ColumnInfo(name = "hints_used") val hintsUsed: Int
 )
 
 /** A participant joined to their player record, for session detail. */
@@ -329,6 +342,7 @@ data class TableCountSummary(
     val sessionPlayers: Int,
     val sessionExpansions: Int,
     val sessionModes: Int,
+    val sessionObjectives: Int,
     val rubrics: Int,
     val rubricCriteria: Int,
     val gameRatings: Int,
@@ -337,6 +351,6 @@ data class TableCountSummary(
 ) {
     val total: Int
         get() = games + gameCosts + tags + gameTags + players + sessions + sessionPlayers +
-            sessionExpansions + sessionModes + rubrics + rubricCriteria + gameRatings +
-            gameRatingScores + achievementUnlocks
+            sessionExpansions + sessionModes + sessionObjectives + rubrics + rubricCriteria +
+            gameRatings + gameRatingScores + achievementUnlocks
 }

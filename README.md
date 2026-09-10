@@ -124,7 +124,7 @@ The token reaches the code through `BuildConfig` and is never committed.
 app/src/main/java/com/boardgamenation/tracker/
 ├── core/time/        Clocks. Wall-clock and monotonic, deliberately separate.
 ├── data/
-│   ├── db/           Room: 17 entities, DAOs, projections, the query builder
+│   ├── db/           Room: 20 entities, DAOs, projections, the query builder
 │   ├── repository/   The repository layer; nothing above it touches a DAO
 │   ├── csv/          RFC 4180 reader and writer, export and import
 │   ├── backup/       Raw .db backup, restore, and the weekly WorkManager job
@@ -277,12 +277,42 @@ column those statistics filter on in SQL, but that column is now written *from* 
 condition rather than set beside it: while they were two fields on opposite sides of the
 form, one play could claim both.
 
+### A win is not a record when the game is always won
+
+Unlock!, Exit, Chronicles of Crime and Sherlock Holmes Consulting Detective are all but
+always winnable and very rarely lost. A result is the one thing the app can say about
+them, and it is the one thing that says nothing: a case cracked clean and a case cracked
+on the fourth hint read identically.
+
+So `Objectives` scoring records what the evening actually was — each objective the table
+worked through, the hints it took, and the goes it took. Free text for the objective, the
+way a configuration is free text: every game names its puzzles differently, and a fixed
+list would not survive the next box. Unlike a configuration, none of it is offered back as
+a chip on the next play, because a puzzle belongs to one case and the next case has
+different ones.
+
+The table still shares one outcome, so the mode writes `sessions.is_cooperative` exactly
+as a co-op does and settles the result the same way. That column now means the table had
+one result rather than the box saying co-operative on it, which is the question every
+screen reading it was already asking — the result line on a session row, the shared card,
+the co-op win rates.
+
+Hints cannot go below zero and attempts cannot go below one, in the form, the repository
+and the CSV import alike. An objective somebody wrote down is one the table had a go at,
+and an archive is a text file somebody may well have edited.
+
 ### A play does not remember the scoring mode it was logged under
 
 A session records whether it was cooperative and what each player scored, but not its
-scoring mode. `SessionRepository.loadForm` works that out again on every read: a co-op
-play is a co-op, a play with sides on it was a team game whatever the game says now, and
-anything else takes the game's mode as it stands today.
+scoring mode. `SessionRepository.loadForm` works that out again on every read: a play with
+objectives on it was an investigative one, a play with sides on it was a team game
+whatever the game says now, and anything else takes the game's mode as it stands today.
+
+A play that shared one table-wide outcome is the case with two answers, since a co-op and
+an investigative play both write that column. Its objectives settle it where there are
+any; where there are none, the game's own scoring picks between the two, so a case nobody
+broke into objectives still opens on the mode it was played in rather than dropping to a
+plain co-op.
 
 That is the right default — scoring is a property of the game, and one play should not
 pin it — but it means a play's mode moves under it. Changing the scoring on any single
@@ -295,6 +325,10 @@ field for. Scores are cleared on load as well, because the mode that justified k
 them can change afterwards without the row being touched. That also rules out repairing
 old rows with a migration — it would have had to ask each play what mode it was in, and
 got back whatever its game happened to say the day it ran.
+
+Objectives are cleared on save by the same rule, and it matters as much as it does for
+sides: they are also read by the derivation above, so one left behind by a mode change
+would pin the play to investigative scoring with no way out.
 
 Sides are the one thing not cleared on load, and deliberately: they are what the derivation
 above *reads*. A saved side is meant to outrank the game's current mode, so discarding one
@@ -422,6 +456,7 @@ fails.
 | `GameQueryBuilderTest` | That values are bound and never interpolated |
 | `MigrationChainTest` | That a version bump without a migration fails the build |
 | `MigrationTest` | The chain run against a real v1 database: designers backfilled, ids not rewound; and a v8 one, for the two columns folded into one ending |
+| `ObjectiveScoringTest` | Hints and goes per objective, the counts held to what they can mean, and that an objective never outlives its mode |
 | `EndConditionTest` | Placement without scores, that the other modes settle their own results, and that logging a play never rewrites the game |
 | `QuickLogViewModelTest` | That a quick log leaves the game's scoring mode alone |
 | `LegacyCsvImportTest` | An archive from before designers were tags still imports intact |

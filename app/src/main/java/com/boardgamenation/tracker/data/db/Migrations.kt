@@ -617,6 +617,36 @@ object Migrations {
     }
 
     /**
+     * Gives an investigative or escape-room play somewhere to record what each objective
+     * cost.
+     *
+     * These games are all but always winnable and very rarely lost, so the one thing the
+     * app could already record about them -- the table won -- is the one thing that says
+     * nothing. What separates a case solved clean from one solved on the fourth hint is
+     * per objective, so objectives get rows of their own.
+     *
+     * Purely additive, and nothing is backfilled. A play logged before this table existed
+     * has no hint count hiding anywhere to recover: the question was never asked, and
+     * inventing a zero would claim the table solved an old case unaided.
+     */
+    private val MIGRATION_14_15 = Migration(14, 15) { db ->
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `session_objectives` (
+                `session_id` INTEGER NOT NULL,
+                `objective` TEXT NOT NULL,
+                `hints_used` INTEGER NOT NULL DEFAULT 0,
+                `attempts` INTEGER NOT NULL DEFAULT 1,
+                `sort_order` INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(`session_id`, `objective`),
+                FOREIGN KEY(`session_id`) REFERENCES `sessions`(`id`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+    }
+
+    /**
      * Ordered oldest to newest. Room composes them, so a device three versions behind
      * walks the chain rather than needing a 1-to-4 migration of its own.
      */
@@ -633,6 +663,7 @@ object Migrations {
         MIGRATION_10_11,
         MIGRATION_11_12,
         MIGRATION_12_13,
-        MIGRATION_13_14
+        MIGRATION_13_14,
+        MIGRATION_14_15
     )
 }

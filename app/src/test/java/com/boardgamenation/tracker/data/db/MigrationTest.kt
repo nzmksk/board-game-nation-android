@@ -8,6 +8,7 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
 import com.boardgamenation.tracker.data.db.entity.GameCostEntity
 import com.boardgamenation.tracker.data.db.entity.SessionModeEntity
+import com.boardgamenation.tracker.data.db.entity.SessionObjectiveEntity
 import com.boardgamenation.tracker.data.db.query.GameQueryBuilder
 import com.boardgamenation.tracker.domain.model.CollectionFilter
 import com.boardgamenation.tracker.domain.model.GameStatus
@@ -753,6 +754,74 @@ class MigrationTest {
         db.sessionDao().updateSession(session.copy(isInvalid = true))
 
         assertTrue(db.sessionDao().getSession(1)!!.isInvalid)
+    }
+
+    // --- session objectives ---------------------------------------------------------
+
+    /**
+     * Nothing is backfilled, because there is nothing to backfill from. A case solved
+     * before the app asked about hints has no hint count hiding in another column, and a
+     * zero would claim the table solved it unaided.
+     */
+    @Test
+    fun `a play written before the table has no objectives`() = runTest {
+        seedAt(14) { db ->
+            insertGameV11(db, id = 1, title = "Unlock!", price = null)
+            insertSessionV12(db, id = 1, mode = "The Formula")
+        }
+
+        val db = openMigrated()
+
+        assertEquals(0, db.sessionDao().countObjectives())
+        // And the play itself is untouched: its configuration still reads as it did.
+        assertEquals("The Formula", db.sessionDao().getSession(1)!!.mode)
+    }
+
+    /** What the table came for: a puzzle, the hints it took, and the goes it took. */
+    @Test
+    fun `what each objective cost can be recorded after the upgrade`() = runTest {
+        seedAt(14) { db ->
+            insertGameV11(db, id = 1, title = "Exit: The Sunken Treasure", price = null)
+            insertSessionV12(db, id = 1, mode = null)
+        }
+
+        val db = openMigrated()
+        db.sessionDao().insertObjectives(
+            listOf(
+                SessionObjectiveEntity(sessionId = 1, objective = "The anchor", sortOrder = 0),
+                SessionObjectiveEntity(
+                    sessionId = 1,
+                    objective = "The captain's log",
+                    hintsUsed = 2,
+                    attempts = 3,
+                    sortOrder = 1
+                )
+            )
+        )
+
+        val objectives = db.sessionDao().getObjectives(1)
+
+        assertEquals(listOf("The anchor", "The captain's log"), objectives.map { it.objective })
+        // An objective cracked unaided is a zero worth keeping, not an absent row.
+        assertEquals(listOf(0, 2), objectives.map { it.hintsUsed })
+        assertEquals(listOf(1, 3), objectives.map { it.attempts })
+    }
+
+    /** Deleting the play takes what its objectives cost with it rather than orphaning it. */
+    @Test
+    fun `objectives are deleted with the session they belong to`() = runTest {
+        seedAt(14) { db ->
+            insertGameV11(db, id = 1, title = "Chronicles of Crime", price = null)
+            insertSessionV12(db, id = 1, mode = null)
+        }
+
+        val db = openMigrated()
+        db.sessionDao().insertObjectives(
+            listOf(SessionObjectiveEntity(sessionId = 1, objective = "Who killed him", hintsUsed = 1))
+        )
+        db.sessionDao().deleteSession(1)
+
+        assertEquals(0, db.sessionDao().countObjectives())
     }
 
     // --- integrity ------------------------------------------------------------------

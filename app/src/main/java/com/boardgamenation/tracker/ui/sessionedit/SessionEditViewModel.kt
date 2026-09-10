@@ -23,6 +23,8 @@ import com.boardgamenation.tracker.domain.model.Seating
 import com.boardgamenation.tracker.domain.model.SessionEndCondition
 import com.boardgamenation.tracker.domain.model.SessionForm
 import com.boardgamenation.tracker.domain.model.SessionModes
+import com.boardgamenation.tracker.domain.model.SessionObjective
+import com.boardgamenation.tracker.domain.model.SessionObjectives
 import com.boardgamenation.tracker.domain.model.TurnOrder
 import com.boardgamenation.tracker.domain.share.ShareCard
 import com.boardgamenation.tracker.domain.usecase.DeleteSessionUseCase
@@ -261,6 +263,61 @@ class SessionEditViewModel @Inject constructor(
 
     fun removeMode(mode: String) {
         update { form -> form.copy(modes = form.modes.filterNot { it.equals(mode, ignoreCase = true) }) }
+    }
+
+    /**
+     * Objectives are added by name and then counted up, which is the order an evening
+     * actually happens in: the table names the puzzle it is on, and the hints and the
+     * goes accumulate while they work at it.
+     *
+     * Naming one already on the play does nothing rather than listing it twice, matched
+     * however it was capitalised, exactly as a configuration is.
+     *
+     * Nothing is offered back as a suggestion the way a configuration is. A puzzle belongs
+     * to one case and the next case has different ones, so a chip here would only ever be
+     * an answer from an evening that has nothing to do with this one.
+     */
+    fun addObjective(objective: String) {
+        val trimmed = objective.trim()
+        if (trimmed.isEmpty()) return
+        update { form ->
+            if (SessionObjectives.contains(form.objectives, trimmed)) {
+                form
+            } else {
+                form.copy(objectives = form.objectives + SessionObjective(trimmed))
+            }
+        }
+    }
+
+    fun removeObjective(objective: String) {
+        update { form ->
+            form.copy(
+                objectives = form.objectives.filterNot { it.objective.equals(objective, ignoreCase = true) }
+            )
+        }
+    }
+
+    /** A hint taken, or one counted by mistake. Never fewer than none. */
+    fun adjustHints(objective: String, delta: Int) {
+        updateObjective(objective) { it.copy(hintsUsed = (it.hintsUsed + delta).coerceAtLeast(0)) }
+    }
+
+    /**
+     * Another go at it, or one counted by mistake. Never fewer than one: an objective on
+     * the play is one the table had a go at.
+     */
+    fun adjustAttempts(objective: String, delta: Int) {
+        updateObjective(objective) { it.copy(attempts = (it.attempts + delta).coerceAtLeast(1)) }
+    }
+
+    private fun updateObjective(objective: String, block: (SessionObjective) -> SessionObjective) {
+        update { form ->
+            form.copy(
+                objectives = form.objectives.map {
+                    if (it.objective.equals(objective, ignoreCase = true)) block(it) else it
+                }
+            )
+        }
     }
 
     fun addPlayer(player: PlayerEntity) {

@@ -49,6 +49,15 @@ data class SessionForm(
     val modes: List<String> = emptyList(),
 
     /**
+     * The objectives the table worked through, and what each one cost in hints and goes.
+     *
+     * Only an objective-based play records them, and only that mode's section of the form
+     * offers them, so a play moved to another mode keeps none -- the save drops them for
+     * the reason it drops a stale score or a stale side.
+     */
+    val objectives: List<SessionObjective> = emptyList(),
+
+    /**
      * The side that won, for a team game. Not stored as a column of its own: the
      * winners are marked on the participants, so the winning side is whichever team
      * those rows belong to and cannot drift away from them.
@@ -98,7 +107,17 @@ data class SessionForm(
      */
     val derivePlacements: Boolean = true
 ) {
-    val isCooperative: Boolean get() = scoringMode == ScoringMode.COOPERATIVE
+    /**
+     * Whether the table shares one result. True of an investigative play as well as a
+     * co-op: the case is cracked or it is not, and nobody at the table cracked it
+     * privately.
+     *
+     * This is what writes `sessions.is_cooperative`, so the column means "the table had
+     * one outcome" rather than "the game was a co-op". Every screen that reads it --
+     * the result line on the session row, the shared card, the co-op win rates -- was
+     * already asking the first question.
+     */
+    val isCooperative: Boolean get() = scoringMode.sharesTableOutcome
 
     /**
      * The configurations read as one line, which is what the session list, the share
@@ -111,6 +130,12 @@ data class SessionForm(
 
     /** Sides win together, so nobody is marked a winner individually. */
     val isTeamBased: Boolean get() = scoringMode.recordsSides
+
+    /** Whether this play lists objectives and what each of them cost. */
+    val hasObjectives: Boolean get() = scoringMode.recordsObjectives
+
+    /** Hints taken across the whole case, which is the figure worth comparing cases by. */
+    val totalHints: Int get() = SessionObjectives.totalHints(objectives)
 
     /** The sides named on the form so far, in the order they were entered. */
     val teams: List<String>
@@ -186,6 +211,54 @@ object SessionModes {
 
     /** Whether this configuration is already on the play, however it was capitalised. */
     fun contains(modes: List<String>, mode: String): Boolean = modes.any { it.equals(mode.trim(), ignoreCase = true) }
+}
+
+/**
+ * One objective and what it cost the table: the hints taken before it fell, and the goes
+ * it took to get it right.
+ *
+ * Hints and attempts are what an investigative game is actually worth measuring by, and
+ * they are per objective rather than per play because a case is a handful of puzzles: one
+ * room that stopped everybody dead and four that did not is the story of the evening, and
+ * a single total for the night hides it.
+ */
+data class SessionObjective(val objective: String, val hintsUsed: Int = 0, val attempts: Int = 1)
+
+/**
+ * The objectives one play worked through.
+ *
+ * The rules are the ones [SessionModes] keeps, for the same reasons: a label is what
+ * somebody typed with the spaces taken off, and naming the same objective twice names it
+ * once, matched case-insensitively because "The safe" and "the safe" are one puzzle to
+ * everybody except a string comparison.
+ *
+ * The counts are held to what they can mean. Hints cannot be negative, and attempts
+ * cannot be fewer than one: an objective somebody wrote down is one the table had a go
+ * at, and zero goes would describe a puzzle nobody touched.
+ */
+object SessionObjectives {
+
+    /** The rows worth storing, in the order they were entered. */
+    fun clean(objectives: List<SessionObjective>): List<SessionObjective> = objectives
+        .map {
+            it.copy(
+                objective = it.objective.trim(),
+                hintsUsed = it.hintsUsed.coerceAtLeast(0),
+                attempts = it.attempts.coerceAtLeast(1)
+            )
+        }
+        .filter { it.objective.isNotEmpty() }
+        .distinctBy { it.objective.lowercase() }
+
+    /** Whether this objective is already on the play, however it was capitalised. */
+    fun contains(objectives: List<SessionObjective>, objective: String): Boolean =
+        objectives.any { it.objective.equals(objective.trim(), ignoreCase = true) }
+
+    /** Hints taken across the whole case. */
+    fun totalHints(objectives: List<SessionObjective>): Int = clean(objectives).sumOf { it.hintsUsed }
+
+    /** Goes taken across the whole case, counting the ones that worked. */
+    fun totalAttempts(objectives: List<SessionObjective>): Int = clean(objectives).sumOf { it.attempts }
 }
 
 /**

@@ -28,6 +28,7 @@ import com.boardgamenation.tracker.data.db.entity.RubricEntity
 import com.boardgamenation.tracker.data.db.entity.SessionEntity
 import com.boardgamenation.tracker.data.db.entity.SessionExpansionEntity
 import com.boardgamenation.tracker.data.db.entity.SessionModeEntity
+import com.boardgamenation.tracker.data.db.entity.SessionObjectiveEntity
 import com.boardgamenation.tracker.data.db.entity.SessionPlayerEntity
 import com.boardgamenation.tracker.data.db.entity.TagEntity
 import com.boardgamenation.tracker.data.db.entity.TimerPresetEntity
@@ -53,6 +54,7 @@ import com.boardgamenation.tracker.data.db.entity.TimerStateEntity
         SessionPlayerEntity::class,
         SessionExpansionEntity::class,
         SessionModeEntity::class,
+        SessionObjectiveEntity::class,
         RubricEntity::class,
         RubricCriterionEntity::class,
         GameRatingEntity::class,
@@ -83,7 +85,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun bggCacheDao(): BggCacheDao
 
     companion object {
-        const val VERSION = 14
+        const val VERSION = 15
         const val NAME = "board_game_nation.db"
     }
 }

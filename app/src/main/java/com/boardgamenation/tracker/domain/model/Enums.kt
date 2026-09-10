@@ -159,6 +159,18 @@ enum class ScoringMode {
      */
     TEAM_BASED,
 
+    /**
+     * Objectives solved, each at the cost of however many hints and goes it took.
+     *
+     * What an investigative or escape-room game leaves behind. Unlock!, Exit, Chronicles
+     * of Crime and Sherlock Holmes Consulting Detective are all but always winnable and
+     * very rarely lost, so a win on its own says nothing about the evening: a case solved
+     * clean and a case solved on the fourth hint read identically. The table still wins or
+     * loses together, exactly as in a [COOPERATIVE] game -- what this mode adds is the
+     * part that actually varies.
+     */
+    OBJECTIVE_BASED,
+
     /** Neither scores nor order matter; just record who played. */
     NONE;
 
@@ -182,6 +194,29 @@ enum class ScoringMode {
      * not merely sit there unread, it pins the play to team scoring with no way out.
      */
     val recordsSides: Boolean get() = this == TEAM_BASED
+
+    /**
+     * Whether a play in this mode lists the objectives the table worked through.
+     *
+     * Like [recordsSides], this is one of the answers a play's mode is worked out from on
+     * the way back, so it is also what stops an objective outliving the mode that asked
+     * for it: a play moved to scored or team play keeps none, because there would be
+     * nowhere left in the app to see or correct them and they would pin the play to a
+     * mode it had been moved out of.
+     */
+    val recordsObjectives: Boolean get() = this == OBJECTIVE_BASED
+
+    /**
+     * Whether the whole table shares one win or loss rather than each player having a
+     * result of their own.
+     *
+     * Two modes do. A co-op is the obvious one; an investigative game is the same shape
+     * with the interesting part written down beside it, and every piece of machinery the
+     * table-wide outcome already has -- the `is_cooperative` column, the co-op outcome,
+     * the result line on the session row, the shared card -- is machinery it should be
+     * using rather than reinventing one mode along.
+     */
+    val sharesTableOutcome: Boolean get() = this == COOPERATIVE || this == OBJECTIVE_BASED
 
     companion object {
         fun fromStorage(value: String?): ScoringMode = entries.firstOrNull { it.name == value } ?: RANKED_SCORES

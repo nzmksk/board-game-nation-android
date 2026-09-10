@@ -391,6 +391,16 @@ fun SessionRow(session: SessionListItem, showGameTitle: Boolean, onClick: () -> 
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                    // The whole record of an investigative play, and the only place it is
+                    // seen without opening the play: every one of them was won, so a row
+                    // showing nothing but the result says the same thing about all of them.
+                    if (session.objectiveCount > 0) {
+                        Text(
+                            text = objectiveTally(session.objectiveCount, session.hintsUsed),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     session.firstPlayerName?.let { name ->
                         Text(
                             text = stringResource(R.string.session_first_player, name),
@@ -418,6 +428,24 @@ fun SessionRow(session: SessionListItem, showGameTitle: Boolean, onClick: () -> 
             }
         }
     }
+}
+
+/**
+ * "4 objectives · no hints", which on a good night is the boast the row is there for.
+ *
+ * The hint count is spelled out even at zero, because zero is the interesting answer: a
+ * case cracked on nothing but the table's own reasoning reads as an absent figure
+ * otherwise, which is how every play that records no objectives at all reads.
+ */
+@Composable
+private fun objectiveTally(objectives: Int, hints: Int): String {
+    val objectiveText = pluralStringResource(R.plurals.session_objectives, objectives, objectives)
+    val hintText = if (hints == 0) {
+        stringResource(R.string.session_hints_none)
+    } else {
+        pluralStringResource(R.plurals.session_hints, hints, hints)
+    }
+    return "$objectiveText · $hintText"
 }
 
 /**

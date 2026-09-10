@@ -13,6 +13,7 @@ import com.boardgamenation.tracker.data.db.entity.RubricCriterionEntity
 import com.boardgamenation.tracker.data.db.entity.RubricEntity
 import com.boardgamenation.tracker.data.db.entity.SessionExpansionEntity
 import com.boardgamenation.tracker.data.db.entity.SessionModeEntity
+import com.boardgamenation.tracker.data.db.entity.SessionObjectiveEntity
 import com.boardgamenation.tracker.data.db.projection.TableCountSummary
 import com.boardgamenation.tracker.data.repository.DataMaintenanceRepository
 import com.boardgamenation.tracker.domain.model.GameStatus
@@ -182,6 +183,30 @@ class CsvRoundTripTest {
             )
         }
 
+        db.sessionDao().insertSession(
+            DatabaseTestFixture.session(
+                gameId = wingspan,
+                playedOn = "2026-02-20",
+                durationMinutes = 70,
+                isCooperative = true
+            )
+        ).also { sessionId ->
+            db.sessionDao().insertObjectives(
+                listOf(
+                    // A puzzle cracked unaided, which is the figure most worth not losing.
+                    SessionObjectiveEntity(sessionId, "The anchor", sortOrder = 0),
+                    SessionObjectiveEntity(
+                        sessionId = sessionId,
+                        // A comma and a quote, for the reason the game titles carry them.
+                        objective = "The captain, \"allegedly\"",
+                        hintsUsed = 2,
+                        attempts = 3,
+                        sortOrder = 1
+                    )
+                )
+            )
+        }
+
         val rubricId = db.rubricDao().insertRubric(
             RubricEntity(name = "Strategy", description = "Decisions, mostly")
         )
@@ -302,6 +327,43 @@ class CsvRoundTripTest {
             "a player left out of the order comes back left out of it",
             rows.filter { it.playerId == aina.id }.all { it.turnOrder == null }
         )
+    }
+
+    /**
+     * What a case cost is the whole record of an investigative play, and it lives nowhere
+     * else: unlike the configuration, no column on the session summarises it, so losing
+     * this file would hand back an evening with its only interesting figures gone.
+     */
+    @Test
+    fun `what each objective cost survives the round trip`() = runTest {
+        populate()
+        val files = exporter.buildFiles()
+        maintenance.wipeUserData()
+        importer.import(files, ImportMode.REPLACE)
+
+        val objectives = db.sessionDao().getAllSessionObjectives().sortedBy { it.sortOrder }
+
+        assertEquals(listOf("The anchor", "The captain, \"allegedly\""), objectives.map { it.objective })
+        assertEquals(listOf(0, 2), objectives.map { it.hintsUsed })
+        assertEquals(listOf(1, 3), objectives.map { it.attempts })
+    }
+
+    /**
+     * An archive taken before the file existed has no hint count anywhere to recover, so
+     * the play restores with no objectives rather than with invented ones -- and it still
+     * restores, which is what matters.
+     */
+    @Test
+    fun `an archive with no objectives file still imports`() = runTest {
+        populate()
+        val files = exporter.buildFiles() - CsvSchema.SESSION_OBJECTIVES
+
+        maintenance.wipeUserData()
+        val result = importer.import(files, ImportMode.REPLACE)
+
+        assertTrue("import reported errors: ${result.errors}", result.errors.isEmpty())
+        assertEquals(0, db.sessionDao().countObjectives())
+        assertNotNull(db.gameDao().getAllGames().firstOrNull { it.title == "Catan" })
     }
 
     @Test
