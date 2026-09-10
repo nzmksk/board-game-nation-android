@@ -24,9 +24,9 @@ import org.robolectric.RobolectricTestRunner
  * Importing a CSV archive written by an older version of the app.
  *
  * This is the other half of the backup story, next to `MigrationTest`. A CSV export taken
- * before this change still carries a `designers` column on games and says nothing at all
- * about how a play ended, and somebody restoring one of those archives should not silently
- * lose a field from every game in their collection.
+ * before this change still carries `designers` and `publisher` columns on games and says
+ * nothing at all about how a play ended, and somebody restoring one of those archives
+ * should not silently lose a field from every game in their collection.
  *
  * The files here are written out by hand rather than produced by the exporter, because
  * the whole point is a shape the current exporter can no longer produce.
@@ -73,17 +73,17 @@ class LegacyCsvImportTest {
     fun tearDown() = db.close()
 
     /**
-     * A version 1 archive: `designers` present on games, no `sudden_death_possible`, and
-     * sessions without `end_condition` or `end_reason`. Tag ids are deliberately high, so
-     * a designer tag created during the import would collide if it were created before
-     * these rows were restored.
+     * A version 1 archive: `designers` and `publisher` present on games, no
+     * `sudden_death_possible`, and sessions without `end_condition` or `end_reason`. Tag
+     * ids are deliberately high, so a tag created during the import would collide if it
+     * were created before these rows were restored.
      */
     private fun legacyFiles(): Map<String, String> = mapOf(
         CsvSchema.GAMES to """
-            id,title,designers,date_added,status,scoring_mode,created_at,updated_at
-            1,7 Wonders Duel,"Antoine Bauza, Bruno Cathala",2026-01-01,OWNED,RANKED_SCORES,0,0
-            2,Cyclades,Bruno Cathala,2026-01-02,OWNED,RANKED_SCORES,0,0
-            3,Prototype,,2026-01-03,OWNED,RANKED_SCORES,0,0
+            id,title,designers,publisher,date_added,status,scoring_mode,created_at,updated_at
+            1,7 Wonders Duel,"Antoine Bauza, Bruno Cathala",Repos Production,2026-01-01,OWNED,RANKED_SCORES,0,0
+            2,Cyclades,Bruno Cathala,"Matagot, SAS",2026-01-02,OWNED,RANKED_SCORES,0,0
+            3,Prototype,,,2026-01-03,OWNED,RANKED_SCORES,0,0
         """.trimIndent(),
         CsvSchema.TAGS to """
             id,name,kind
@@ -140,31 +140,62 @@ class LegacyCsvImportTest {
     }
 
     /**
-     * Replace mode restores tag ids from the file verbatim. Creating designer tags before
-     * that happened would hand out ids 1 and 2, which is fine here but would collide the
-     * moment an archive used low tag ids -- so the rescue runs after `game_tags`.
+     * Replace mode restores tag ids from the file verbatim. Creating the rescued tags
+     * before that happened would hand out ids 1 and 2, which is fine here but would
+     * collide the moment an archive used low tag ids -- so both rescues run after
+     * `game_tags`.
      */
     @Test
-    fun `rescued designers do not disturb the tag ids the archive restored`() = runTest {
+    fun `rescued names do not disturb the tag ids the archive restored`() = runTest {
         importer.import(legacyFiles(), ImportMode.REPLACE)
 
         assertEquals("Card Drafting", db.tagDao().getAll().single { it.id == 40L }.name)
         assertEquals("Ancient", db.tagDao().getAll().single { it.id == 41L }.name)
 
-        val designerIds = db.tagDao().getAll()
-            .filter { it.kind == TagKind.DESIGNER }
+        val rescuedIds = db.tagDao().getAll()
+            .filter { it.kind == TagKind.DESIGNER || it.kind == TagKind.PUBLISHER }
             .map { it.id }
         assertTrue(
-            "designer ids $designerIds should not overwrite restored ids",
-            designerIds.none { it == 40L || it == 41L }
+            "rescued ids $rescuedIds should not overwrite restored ids",
+            rescuedIds.none { it == 40L || it == 41L }
         )
         // The mechanic and category links from the archive are still intact.
         assertEquals(
             listOf("Ancient", "Card Drafting"),
             db.tagDao().observeForGame(1).first()
-                .filter { it.kind != TagKind.DESIGNER }
+                .filter { it.kind.shownAsTag }
                 .map { it.name }
                 .sorted()
+        )
+    }
+
+    @Test
+    fun `the old publisher column is rescued into a PUBLISHER tag`() = runTest {
+        importer.import(legacyFiles(), ImportMode.REPLACE)
+
+        assertEquals(
+            listOf("Repos Production"),
+            db.tagDao().observeForGame(1).first()
+                .filter { it.kind == TagKind.PUBLISHER }
+                .map { it.name }
+        )
+        // A game with an empty publisher cell gets nothing rather than a blank tag.
+        assertTrue(db.tagDao().observeForGame(3).first().isEmpty())
+    }
+
+    /**
+     * The column was single-valued, so a comma in it belongs to the name. The designers
+     * column beside it really was a joined list, and is still split.
+     */
+    @Test
+    fun `a comma in a legacy publisher is not a separator`() = runTest {
+        importer.import(legacyFiles(), ImportMode.REPLACE)
+
+        assertEquals(
+            listOf("Matagot, SAS"),
+            db.tagDao().observeForGame(2).first()
+                .filter { it.kind == TagKind.PUBLISHER }
+                .map { it.name }
         )
     }
 

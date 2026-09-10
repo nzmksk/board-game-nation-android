@@ -133,7 +133,7 @@
     <string name="game_detail_weight">Weight</string>
     <string name="game_detail_best_at">Best at %1$s</string>
     <string name="game_detail_designers">Designers</string>
-    <string name="game_detail_publisher">Publisher</string>
+    <string name="game_detail_publishers">Publishers</string>
     <string name="game_detail_bgg_rating">BGG rating</string>
     <string name="game_detail_delete_title">Delete this game?</string>
     <plurals name="game_detail_delete_with_sessions">
@@ -158,7 +158,7 @@
     <string name="game_edit_max_playtime">Max minutes</string>
     <string name="game_edit_weight">Weight (1–5)</string>
     <string name="game_edit_designers">Designers</string>
-    <string name="game_edit_publisher">Publisher</string>
+    <string name="game_edit_publishers">Publishers</string>
     <string name="game_edit_date_added">Date added</string>
     <string name="game_edit_price">Price</string>
     <string name="game_edit_currency">Currency</string>
@@ -173,7 +173,7 @@
     <string name="game_edit_is_expansion">This is an expansion</string>
     <string name="game_edit_base_game_none">No base game</string>
     <string name="game_edit_notes">Notes</string>
-    <string name="game_edit_tags">Mechanics, categories and designers</string>
+    <string name="game_edit_tags">Mechanics, categories, designers and publishers</string>
     <string name="game_edit_tag_hint">Type a tag and press add</string>
     <string name="game_edit_search_bgg">Search BoardGameGeek</string>
     <string name="game_edit_scoring_mode">Scoring</string>

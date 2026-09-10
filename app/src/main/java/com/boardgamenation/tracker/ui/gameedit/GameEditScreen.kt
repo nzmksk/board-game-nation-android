@@ -188,16 +188,6 @@ fun GameEditScreen(
                 }
             }
 
-            item {
-                OutlinedTextField(
-                    value = state.publisher,
-                    onValueChange = { v -> viewModel.update { it.copy(publisher = v) } },
-                    label = { Text(stringResource(R.string.game_edit_publisher)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
             item { SectionHeader(stringResource(R.string.game_detail_purchase)) }
 
             item {
@@ -370,6 +360,15 @@ fun GameEditScreen(
                     tags = state.designers,
                     onAdd = { viewModel.addTag(TagKind.DESIGNER, it) },
                     onRemove = { viewModel.removeTag(TagKind.DESIGNER, it) }
+                )
+            }
+
+            item {
+                TagEditor(
+                    label = stringResource(R.string.game_edit_publishers),
+                    tags = state.publishers,
+                    onAdd = { viewModel.addTag(TagKind.PUBLISHER, it) },
+                    onRemove = { viewModel.removeTag(TagKind.PUBLISHER, it) }
                 )
             }
 

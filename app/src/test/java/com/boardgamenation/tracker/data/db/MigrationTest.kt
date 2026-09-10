@@ -849,6 +849,95 @@ class MigrationTest {
         assertEquals(1L, db.gameDao().getGame(2)!!.baseGameId)
     }
 
+    // --- publishers -----------------------------------------------------------------
+
+    @Test
+    fun `the publisher column becomes a PUBLISHER tag`() = runTest {
+        seedV1 { db ->
+            insertGame(db, id = 1, title = "Wingspan", designers = "NULL", publisher = "'Stonemaier Games'")
+            insertGame(db, id = 2, title = "Scythe", designers = "NULL", publisher = "'Stonemaier Games'")
+            insertGame(db, id = 3, title = "Azul", designers = "NULL", publisher = "'Plan B Games'")
+        }
+
+        val db = openMigrated()
+        val tags = db.tagDao().getAll().filter { it.kind == TagKind.PUBLISHER }
+
+        assertEquals(listOf("Plan B Games", "Stonemaier Games"), tags.map { it.name }.sorted())
+        // Two games from the same publisher converge on one tag row rather than two.
+        assertEquals(1, tags.count { it.name == "Stonemaier Games" })
+
+        assertEquals(
+            listOf("Stonemaier Games"),
+            db.tagDao().observeForGame(2).first().map { it.name }
+        )
+        assertEquals(
+            listOf("Plan B Games"),
+            db.tagDao().observeForGame(3).first().map { it.name }
+        )
+    }
+
+    /**
+     * The column was single-valued, so a comma in it is part of a company name rather
+     * than a separator. Splitting on it would invent a publisher nobody could put back
+     * together; a collection that did cram two names in can separate them on the form.
+     */
+    @Test
+    fun `a comma in a publisher name is not a separator`() = runTest {
+        seedV1 { db ->
+            insertGame(db, id = 1, title = "Ticket to Ride", designers = "NULL", publisher = "'Days of Wonder, Inc.'")
+        }
+
+        val db = openMigrated()
+
+        assertEquals(
+            listOf("Days of Wonder, Inc."),
+            db.tagDao().getAll().filter { it.kind == TagKind.PUBLISHER }.map { it.name }
+        )
+    }
+
+    @Test
+    fun `awkward publisher values do not produce empty or stray tags`() = runTest {
+        seedV1 { db ->
+            insertGame(db, id = 1, title = "Null", designers = "NULL", publisher = "NULL")
+            insertGame(db, id = 2, title = "Empty", designers = "NULL", publisher = "''")
+            insertGame(db, id = 3, title = "Whitespace only", designers = "NULL", publisher = "'   '")
+            insertGame(db, id = 4, title = "Padded", designers = "NULL", publisher = "'  Rio Grande Games  '")
+        }
+
+        val db = openMigrated()
+        val publishers = db.tagDao().getAll().filter { it.kind == TagKind.PUBLISHER }
+
+        assertEquals(listOf("Rio Grande Games"), publishers.map { it.name })
+        listOf(1L, 2L, 3L).forEach { gameId ->
+            assertTrue(
+                "game $gameId should have no tags",
+                db.tagDao().observeForGame(gameId).first().isEmpty()
+            )
+        }
+        assertEquals(
+            listOf("Rio Grande Games"),
+            db.tagDao().observeForGame(4).first().map { it.name }
+        )
+    }
+
+    @Test
+    fun `the publisher column is gone and the games survive`() = runTest {
+        seedV1 { db ->
+            insertGame(db, id = 1, title = "Brass", designers = "NULL", publisher = "'Roxley'")
+            insertGame(db, id = 2, title = "Azul", designers = "NULL", publisher = "NULL")
+        }
+
+        val db = openMigrated()
+
+        assertEquals(2, db.gameDao().getAllGames().size)
+        assertEquals("Brass", db.gameDao().getGame(1)!!.title)
+        assertFalse("publisher column should be dropped", columnsOf(db, "games").contains("publisher"))
+        // The rebuild copies the rest of the table across rather than only the columns
+        // this migration cares about.
+        assertTrue(columnsOf(db, "games").contains("scoring_mode"))
+        assertEquals("Roxley", db.tagDao().observeForGame(1).first().single().name)
+    }
+
     // --- plumbing -------------------------------------------------------------------
 
     /** Builds a database at schema version 1 and hands it to [block] to fill. */
@@ -895,11 +984,19 @@ class MigrationTest {
             it.openHelper.writableDatabase
         }
 
-    private fun insertGame(db: SupportSQLiteDatabase, id: Long, title: String, designers: String, baseGameId: Long? = null) = db.execSQL(
+    private fun insertGame(
+        db: SupportSQLiteDatabase,
+        id: Long,
+        title: String,
+        designers: String,
+        baseGameId: Long? = null,
+        publisher: String = "NULL"
+    ) = db.execSQL(
         """
-        INSERT INTO games (id, title, designers, date_added, status, base_game_id,
+        INSERT INTO games (id, title, designers, publisher, date_added, status, base_game_id,
                            created_at, updated_at)
-        VALUES ($id, '$title', $designers, '2026-01-01', 'OWNED', ${baseGameId ?: "NULL"}, 0, 0)
+        VALUES ($id, '$title', $designers, $publisher, '2026-01-01', 'OWNED',
+                ${baseGameId ?: "NULL"}, 0, 0)
         """.trimIndent()
     )
 

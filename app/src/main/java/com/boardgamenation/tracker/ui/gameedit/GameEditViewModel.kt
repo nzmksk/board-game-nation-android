@@ -46,7 +46,6 @@ data class GameEditState(
     val maxPlaytime: String = "",
     val weight: String = "",
     val bggRating: String = "",
-    val publisher: String = "",
     val dateAdded: String = "",
     val price: String = "",
     val currency: String = "MYR",
@@ -62,6 +61,7 @@ data class GameEditState(
     val mechanics: List<String> = emptyList(),
     val categories: List<String> = emptyList(),
     val designers: List<String> = emptyList(),
+    val publishers: List<String> = emptyList(),
     val baseGameOptions: List<GameEntity> = emptyList(),
     val isNew: Boolean = true,
     val isSaving: Boolean = false,
@@ -124,7 +124,6 @@ class GameEditViewModel @Inject constructor(
                         maxPlaytime = game.maxPlaytimeMinutes?.toString().orEmpty(),
                         weight = game.weight?.toString().orEmpty(),
                         bggRating = game.bggRating?.toString().orEmpty(),
-                        publisher = game.publisher.orEmpty(),
                         dateAdded = game.dateAdded,
                         price = game.price?.toString().orEmpty(),
                         currency = game.currency,
@@ -140,6 +139,7 @@ class GameEditViewModel @Inject constructor(
                         mechanics = tags.filter { it.kind == TagKind.MECHANIC }.map { it.name },
                         categories = tags.filter { it.kind == TagKind.CATEGORY }.map { it.name },
                         designers = tags.filter { it.kind == TagKind.DESIGNER }.map { it.name },
+                        publishers = tags.filter { it.kind == TagKind.PUBLISHER }.map { it.name },
                         // A game cannot be its own base game.
                         baseGameOptions = bases.filter { it.id != game.id },
                         isNew = false
@@ -154,8 +154,8 @@ class GameEditViewModel @Inject constructor(
     }
 
     /**
-     * Add and remove are written once over the kind rather than once per list. Three
-     * kinds would otherwise mean six near-identical methods.
+     * Add and remove are written once over the kind rather than once per list. Four
+     * kinds would otherwise mean eight near-identical methods.
      */
     fun addTag(kind: TagKind, name: String) {
         val trimmed = name.trim()
@@ -171,6 +171,7 @@ class GameEditViewModel @Inject constructor(
         TagKind.MECHANIC -> copy(mechanics = block(mechanics))
         TagKind.CATEGORY -> copy(categories = block(categories))
         TagKind.DESIGNER -> copy(designers = block(designers))
+        TagKind.PUBLISHER -> copy(publishers = block(publishers))
         TagKind.CUSTOM -> this
     }
 
@@ -226,7 +227,6 @@ class GameEditViewModel @Inject constructor(
                 maxPlaytimeMinutes = current.maxPlaytime.toIntOrNull(),
                 weight = current.weight.toDoubleOrNull(),
                 bggRating = current.bggRating.toDoubleOrNull(),
-                publisher = current.publisher.trim().ifBlank { null },
                 thumbnailPath = existing?.thumbnailPath,
                 dateAdded = current.dateAdded.ifBlank { DateUtils.toIso(clock.today()) },
                 price = current.price.toDoubleOrNull(),
@@ -247,7 +247,8 @@ class GameEditViewModel @Inject constructor(
             val mechanicIds = gameRepository.resolveTags(current.mechanics, TagKind.MECHANIC)
             val categoryIds = gameRepository.resolveTags(current.categories, TagKind.CATEGORY)
             val designerIds = gameRepository.resolveTags(current.designers, TagKind.DESIGNER)
-            val tagIds = mechanicIds + categoryIds + designerIds
+            val publisherIds = gameRepository.resolveTags(current.publishers, TagKind.PUBLISHER)
+            val tagIds = mechanicIds + categoryIds + designerIds + publisherIds
 
             val id = if (current.isNew) {
                 gameRepository.addGame(entity, tagIds)

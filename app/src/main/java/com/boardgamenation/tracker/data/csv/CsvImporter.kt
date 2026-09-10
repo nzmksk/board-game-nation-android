@@ -187,6 +187,7 @@ class CsvImporter @Inject constructor(
             val tagIds = importTags(files[CsvSchema.TAGS], mode, errors, written)
             importGameTags(files[CsvSchema.GAME_TAGS], gameIds, tagIds, errors, written)
             importLegacyDesigners(files[CsvSchema.GAMES], gameIds, errors)
+            importLegacyPublishers(files[CsvSchema.GAMES], gameIds, errors)
             val playerIds = importPlayers(files[CsvSchema.PLAYERS], mode, errors, written)
             val sessionIds =
                 importSessions(files[CsvSchema.SESSIONS], mode, gameIds, errors, written)
@@ -275,7 +276,6 @@ class CsvImporter @Inject constructor(
                     maxPlaytimeMinutes = row.int("max_playtime_minutes"),
                     weight = row.double("weight"),
                     bggRating = row.double("bgg_rating"),
-                    publisher = row.string("publisher"),
                     thumbnailPath = row.string("thumbnail_path"),
                     dateAdded = row.requireString("date_added"),
                     price = row.double("price"),
@@ -482,6 +482,47 @@ class CsvImporter @Inject constructor(
                     }
             } catch (e: Exception) {
                 errors += CsvError(row.lineNumber, "designers: ${e.message}")
+            }
+        }
+        if (links.isNotEmpty()) tagDao.insertLinks(links)
+    }
+
+    /**
+     * Rescues the publisher from an export written before publishers became tags.
+     *
+     * Games used to carry a single `publisher` column. An archive from that era still
+     * has it, and dropping it silently would quietly lose a field from every game in
+     * somebody's backup, so the name is re-created as a PUBLISHER tag. A current export
+     * has no such column and this does nothing.
+     *
+     * The whole trimmed value becomes one publisher, exactly as the migration off the
+     * column does. It was a single-valued field, so a comma in it is part of a company
+     * name rather than a separator -- which is the one way this differs from the
+     * designers rescue above, where the column really was a joined list.
+     *
+     * Runs after `game_tags` for the same reason that one does: a replace-mode import
+     * restores tag ids from the file verbatim, and upserting new tags before that would
+     * hand out low autoincrement ids that collide with the ones still to be restored.
+     */
+    private suspend fun importLegacyPublishers(text: String?, gameIds: Map<Long, Long>, errors: MutableList<CsvError>) {
+        val table = text?.let { CsvParser.parse(it) } ?: return
+        if (LEGACY_PUBLISHER_COLUMN !in table.headers) return
+
+        val links = mutableListOf<GameTagCrossRef>()
+        table.rows.forEach { row ->
+            try {
+                val gameId = gameIds[row.long("id")] ?: return@forEach
+                row.string(LEGACY_PUBLISHER_COLUMN)
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { name ->
+                        links += GameTagCrossRef(
+                            gameId = gameId,
+                            tagId = tagDao.upsertByName(name, TagKind.PUBLISHER)
+                        )
+                    }
+            } catch (e: Exception) {
+                errors += CsvError(row.lineNumber, "publisher: ${e.message}")
             }
         }
         if (links.isNotEmpty()) tagDao.insertLinks(links)
@@ -1004,7 +1045,8 @@ class CsvImporter @Inject constructor(
     }
 
     private companion object {
-        /** Only ever read, never written: the column no longer exists. */
+        /** Only ever read, never written: the columns no longer exist. */
         const val LEGACY_DESIGNERS_COLUMN = "designers"
+        const val LEGACY_PUBLISHER_COLUMN = "publisher"
     }
 }
