@@ -1,5 +1,6 @@
 package com.boardgamenation.tracker.data.db
 
+import com.boardgamenation.tracker.data.repository.SessionFilter
 import com.boardgamenation.tracker.data.repository.SessionRepository
 import com.boardgamenation.tracker.domain.model.CoopOutcome
 import com.boardgamenation.tracker.domain.model.ParticipantForm
@@ -7,6 +8,7 @@ import com.boardgamenation.tracker.domain.model.ScoringMode
 import com.boardgamenation.tracker.domain.model.SessionForm
 import com.boardgamenation.tracker.domain.model.SessionObjective
 import java.time.LocalDate
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -246,6 +248,39 @@ class ObjectiveScoringTest {
 
         assertFalse(db.sessionDao().getSession(id)!!.isCooperative)
         assertEquals(0, db.sessionDao().countObjectives())
+    }
+
+    /**
+     * The session row carries the tally, because it is the only place what a case cost is
+     * seen without opening the play. Every one of these games was won, so a row showing
+     * nothing but the result says the same thing about all of them.
+     */
+    @Test
+    fun `the session row carries what the case cost`() = runTest {
+        repository.save(
+            form(
+                objectives = arrayOf(
+                    SessionObjective("Lead 41", hintsUsed = 1),
+                    SessionObjective("Lead 62", hintsUsed = 2, attempts = 3)
+                )
+            )
+        )
+
+        val row = repository.observeSessions(SessionFilter(gameId = unlock)).first().single()
+
+        assertEquals(2, row.objectiveCount)
+        assertEquals(3, row.hintsUsed)
+    }
+
+    /** And a play with no objectives carries a tally of nothing, which is drawn as nothing. */
+    @Test
+    fun `an ordinary play carries no tally`() = runTest {
+        repository.save(form(gameId = pandemic, scoringMode = ScoringMode.COOPERATIVE))
+
+        val row = repository.observeSessions(SessionFilter(gameId = pandemic)).first().single()
+
+        assertEquals(0, row.objectiveCount)
+        assertEquals(0, row.hintsUsed)
     }
 
     /** Removing one leaves the rest, because the save replaces the list outright. */

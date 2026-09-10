@@ -51,7 +51,14 @@ interface SessionDao {
                 SELECT p.name FROM session_players sp
                 JOIN players p ON p.id = sp.player_id
                 WHERE sp.session_id = s.id AND sp.turn_order = 1
-            ) AS first_player_name
+            ) AS first_player_name,
+            (
+                SELECT COUNT(*) FROM session_objectives o WHERE o.session_id = s.id
+            ) AS objective_count,
+            (
+                SELECT COALESCE(SUM(o.hints_used), 0) FROM session_objectives o
+                WHERE o.session_id = s.id
+            ) AS hints_used
         FROM sessions s
         JOIN games g ON g.id = s.game_id
         WHERE s.is_draft = 0
@@ -88,7 +95,14 @@ interface SessionDao {
                 SELECT p.name FROM session_players sp
                 JOIN players p ON p.id = sp.player_id
                 WHERE sp.session_id = s.id AND sp.turn_order = 1
-            ) AS first_player_name
+            ) AS first_player_name,
+            (
+                SELECT COUNT(*) FROM session_objectives o WHERE o.session_id = s.id
+            ) AS objective_count,
+            (
+                SELECT COALESCE(SUM(o.hints_used), 0) FROM session_objectives o
+                WHERE o.session_id = s.id
+            ) AS hints_used
         FROM sessions s
         JOIN games g ON g.id = s.game_id
         WHERE s.is_draft = 0
@@ -289,7 +303,14 @@ interface SessionDao {
                 SELECT p.name FROM session_players sp
                 JOIN players p ON p.id = sp.player_id
                 WHERE sp.session_id = s.id AND sp.turn_order = 1
-            ) AS first_player_name
+            ) AS first_player_name,
+            (
+                SELECT COUNT(*) FROM session_objectives o WHERE o.session_id = s.id
+            ) AS objective_count,
+            (
+                SELECT COALESCE(SUM(o.hints_used), 0) FROM session_objectives o
+                WHERE o.session_id = s.id
+            ) AS hints_used
         FROM sessions s
         JOIN games g ON g.id = s.game_id
         WHERE s.is_draft = 1
