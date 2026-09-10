@@ -133,7 +133,7 @@
     <string name="game_detail_weight">Weight</string>
     <string name="game_detail_best_at">Best at %1$s</string>
     <string name="game_detail_designers">Designers</string>
-    <string name="game_detail_publisher">Publisher</string>
+    <string name="game_detail_publishers">Publishers</string>
     <string name="game_detail_bgg_rating">BGG rating</string>
     <string name="game_detail_delete_title">Delete this game?</string>
     <plurals name="game_detail_delete_with_sessions">

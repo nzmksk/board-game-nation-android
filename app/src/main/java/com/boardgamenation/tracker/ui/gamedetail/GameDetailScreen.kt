@@ -157,9 +157,9 @@ fun GameDetailScreen(
 
             item { StatsRow(state) }
 
-            // Designers are left out: they get their own line further down, and a game
-            // with five of them would otherwise open with a row of names rather than
-            // the mechanics and categories the section is for.
+            // Designers and publishers are left out: they get their own line further
+            // down, and a game with five of either would otherwise open with a row of
+            // names rather than the mechanics and categories the section is for.
             val chips = state.tags.filter { it.kind.shownAsTag }
             if (chips.isNotEmpty()) {
                 item { SectionHeader(stringResource(R.string.game_detail_tags)) }
@@ -188,6 +188,9 @@ fun GameDetailScreen(
                     state = state,
                     designers = state.tags
                         .filter { it.kind == TagKind.DESIGNER }
+                        .map { it.name },
+                    publishers = state.tags
+                        .filter { it.kind == TagKind.PUBLISHER }
                         .map { it.name }
                 )
             }
@@ -561,7 +564,7 @@ private fun money(game: GameEntity, amount: Double): String = stringResource(
 )
 
 @Composable
-private fun MetadataSection(game: GameEntity, state: GameDetailUiState, designers: List<String>) {
+private fun MetadataSection(game: GameEntity, state: GameDetailUiState, designers: List<String>, publishers: List<String>) {
     Column {
         game.weight?.let {
             KeyValueRow(
@@ -578,7 +581,9 @@ private fun MetadataSection(game: GameEntity, state: GameDetailUiState, designer
         designers.takeIf { it.isNotEmpty() }?.let {
             KeyValueRow(stringResource(R.string.game_detail_designers), it.joinToString(", "))
         }
-        game.publisher?.let { KeyValueRow(stringResource(R.string.game_detail_publisher), it) }
+        publishers.takeIf { it.isNotEmpty() }?.let {
+            KeyValueRow(stringResource(R.string.game_detail_publishers), it.joinToString(", "))
+        }
         game.price?.let { KeyValueRow(stringResource(R.string.game_edit_price), money(game, it)) }
         state.costs.forEach { cost ->
             KeyValueRow(cost.label, money(game, cost.amount))
