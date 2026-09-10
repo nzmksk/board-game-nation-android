@@ -342,6 +342,7 @@ data class TableCountSummary(
     val sessionPlayers: Int,
     val sessionExpansions: Int,
     val sessionModes: Int,
+    val sessionObjectives: Int,
     val rubrics: Int,
     val rubricCriteria: Int,
     val gameRatings: Int,
@@ -350,6 +351,6 @@ data class TableCountSummary(
 ) {
     val total: Int
         get() = games + gameCosts + tags + gameTags + players + sessions + sessionPlayers +
-            sessionExpansions + sessionModes + rubrics + rubricCriteria + gameRatings +
-            gameRatingScores + achievementUnlocks
+            sessionExpansions + sessionModes + sessionObjectives + rubrics + rubricCriteria +
+            gameRatings + gameRatingScores + achievementUnlocks
 }

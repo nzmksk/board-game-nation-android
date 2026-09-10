@@ -19,6 +19,7 @@ object CsvSchema {
     const val SESSION_PLAYERS = "session_players.csv"
     const val SESSION_EXPANSIONS = "session_expansions.csv"
     const val SESSION_MODES = "session_modes.csv"
+    const val SESSION_OBJECTIVES = "session_objectives.csv"
     const val RUBRICS = "rubrics.csv"
     const val RUBRIC_CRITERIA = "rubric_criteria.csv"
     const val GAME_RATINGS = "game_ratings.csv"
@@ -28,8 +29,8 @@ object CsvSchema {
 
     val ALL_FILES = listOf(
         GAMES, GAME_COSTS, TAGS, GAME_TAGS, PLAYERS, SESSIONS, SESSION_PLAYERS,
-        SESSION_EXPANSIONS, SESSION_MODES, RUBRICS, RUBRIC_CRITERIA, GAME_RATINGS,
-        GAME_RATING_SCORES, ACHIEVEMENT_UNLOCKS, MANIFEST
+        SESSION_EXPANSIONS, SESSION_MODES, SESSION_OBJECTIVES, RUBRICS, RUBRIC_CRITERIA,
+        GAME_RATINGS, GAME_RATING_SCORES, ACHIEVEMENT_UNLOCKS, MANIFEST
     )
 
     /**
@@ -38,8 +39,8 @@ object CsvSchema {
      */
     val IMPORT_ORDER = listOf(
         GAMES, GAME_COSTS, TAGS, GAME_TAGS, PLAYERS, SESSIONS, SESSION_PLAYERS,
-        SESSION_EXPANSIONS, SESSION_MODES, RUBRICS, RUBRIC_CRITERIA, GAME_RATINGS,
-        GAME_RATING_SCORES, ACHIEVEMENT_UNLOCKS
+        SESSION_EXPANSIONS, SESSION_MODES, SESSION_OBJECTIVES, RUBRICS, RUBRIC_CRITERIA,
+        GAME_RATINGS, GAME_RATING_SCORES, ACHIEVEMENT_UNLOCKS
     )
 
     val gameColumns = listOf(
@@ -81,6 +82,19 @@ object CsvSchema {
      * and gets the one-element set that line always meant.
      */
     val sessionModeColumns = listOf("session_id", "mode", "sort_order")
+
+    /**
+     * What each objective of a play cost. Nothing on `sessions.csv` summarises it, unlike
+     * the configuration: a case is its objectives, and one line saying how many hints the
+     * evening took in total would answer a question nobody asked of a single puzzle.
+     */
+    val sessionObjectiveColumns = listOf(
+        "session_id",
+        "objective",
+        "hints_used",
+        "attempts",
+        "sort_order"
+    )
 
     val rubricColumns = listOf("id", "name", "description", "archived")
 
@@ -129,6 +143,7 @@ object CsvSchema {
         SESSION_PLAYERS -> listOf("session_id", "player_id")
         SESSION_EXPANSIONS -> listOf("session_id", "game_id")
         SESSION_MODES -> listOf("session_id", "mode")
+        SESSION_OBJECTIVES -> listOf("session_id", "objective")
         RUBRICS -> listOf("name")
         RUBRIC_CRITERIA -> listOf("rubric_id", "name")
         GAME_RATINGS -> listOf("game_id", "rubric_id", "rated_on", "computed_score")
@@ -147,6 +162,7 @@ object CsvSchema {
         SESSION_PLAYERS -> sessionPlayerColumns
         SESSION_EXPANSIONS -> sessionExpansionColumns
         SESSION_MODES -> sessionModeColumns
+        SESSION_OBJECTIVES -> sessionObjectiveColumns
         RUBRICS -> rubricColumns
         RUBRIC_CRITERIA -> rubricCriterionColumns
         GAME_RATINGS -> gameRatingColumns
