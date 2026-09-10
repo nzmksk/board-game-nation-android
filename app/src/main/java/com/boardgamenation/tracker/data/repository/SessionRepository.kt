@@ -7,6 +7,7 @@ import com.boardgamenation.tracker.data.db.dao.PlayerDao
 import com.boardgamenation.tracker.data.db.dao.SessionDao
 import com.boardgamenation.tracker.data.db.entity.PlayerEntity
 import com.boardgamenation.tracker.data.db.entity.SessionEntity
+import com.boardgamenation.tracker.data.db.entity.SessionObjectiveEntity
 import com.boardgamenation.tracker.data.db.entity.SessionPlayerEntity
 import com.boardgamenation.tracker.data.db.projection.SessionListItem
 import com.boardgamenation.tracker.data.db.projection.SessionParticipant
@@ -18,6 +19,8 @@ import com.boardgamenation.tracker.domain.model.Seating
 import com.boardgamenation.tracker.domain.model.SessionEndCondition
 import com.boardgamenation.tracker.domain.model.SessionForm
 import com.boardgamenation.tracker.domain.model.SessionModes
+import com.boardgamenation.tracker.domain.model.SessionObjective
+import com.boardgamenation.tracker.domain.model.SessionObjectives
 import com.boardgamenation.tracker.domain.model.TurnOrder
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -108,8 +111,20 @@ class SessionRepository @Inject constructor(
         val modes = sessionDao.getModes(sessionId).map { it.mode }
             .ifEmpty { listOfNotNull(session.mode?.takeIf { it.isNotBlank() }) }
 
+        val objectives = sessionDao.getObjectives(sessionId).map { it.toSessionObjective() }
+
         val scoringMode = when {
-            session.isCooperative -> ScoringMode.COOPERATIVE
+            // A play with objectives on it was an investigative play whatever the game
+            // says now, the same rule sides get below and for the same reason.
+            objectives.isNotEmpty() -> ScoringMode.OBJECTIVE_BASED
+
+            // The column says the table shared one outcome, which two modes do. Which of
+            // them is the game's own answer, so an investigative game whose case nobody
+            // broke into objectives still opens on the mode it is played in rather than
+            // dropping to a plain co-op -- and a game set to neither reads as the co-op
+            // the column has always meant.
+            session.isCooperative ->
+                game?.scoringMode?.takeIf { it.sharesTableOutcome } ?: ScoringMode.COOPERATIVE
 
             // A play with sides on it was a team game whatever the game says now.
             stored.any { !it.team.isNullOrBlank() } -> ScoringMode.TEAM_BASED
@@ -157,6 +172,7 @@ class SessionRepository @Inject constructor(
             highScoreWins = game?.highScoreWins ?: true,
             coopOutcome = session.coopOutcome,
             modes = modes,
+            objectives = objectives,
 
             // The winning side is read back off the winners rather than stored twice.
             winningTeam = participants.firstOrNull { it.isWinner }?.team,
@@ -181,6 +197,7 @@ class SessionRepository @Inject constructor(
      */
     suspend fun save(form: SessionForm): Long {
         val normalised = normalise(form)
+        val objectives = objectivesOf(form)
         val now = clock.nowMillis()
         val existing = if (form.id != 0L) sessionDao.getSession(form.id) else null
 
@@ -236,9 +253,7 @@ class SessionRepository @Inject constructor(
             participants = rows,
             expansionIds = form.expansionIds,
             modes = SessionModes.clean(form.modes),
-            // Nothing on the form records an objective yet; the scoring mode that does is
-            // next. The write path is here so the table cannot be reached any other way.
-            objectives = emptyList()
+            objectives = objectives.map { it.toEntity(form.id) }
         )
 
         // The scoring mode the user actually used is the one worth remembering.
@@ -254,6 +269,21 @@ class SessionRepository @Inject constructor(
             }
         }
         return id
+    }
+
+    /**
+     * The objectives worth writing, which is none at all unless the play records them.
+     *
+     * The same rule a stale score and a stale side get, and it matters more here than for
+     * either: the mode a play reads back under is worked out from its rows, and an
+     * objective left behind by a mode change is one of the answers. Leaving it would make
+     * investigative scoring a state a play cannot be moved out of -- the save would take
+     * the new mode and the next load would hand the old one straight back.
+     */
+    private fun objectivesOf(form: SessionForm): List<SessionObjective> = if (form.hasObjectives) {
+        SessionObjectives.clean(form.objectives)
+    } else {
+        emptyList()
     }
 
     /**
@@ -296,7 +326,10 @@ class SessionRepository @Inject constructor(
 
                 ScoringMode.MANUAL_PLACEMENT -> PlacementCalculator.fromOrder(form.participants)
 
-                ScoringMode.COOPERATIVE ->
+                // The table shares one outcome in both of these, so both settle the
+                // result the same way. What an investigative play records beyond that is
+                // per objective rather than per player.
+                ScoringMode.COOPERATIVE, ScoringMode.OBJECTIVE_BASED ->
                     PlacementCalculator.applyCoop(form.participants, form.coopOutcome)
 
                 ScoringMode.TEAM_BASED ->
@@ -410,6 +443,20 @@ private fun ParticipantForm.toDraftRow(sessionId: Long) = SessionPlayerEntity(
     seat = seat,
     turnTimeMs = turnTimeMs,
     bankTimeRemainingMs = bankTimeRemainingMs
+)
+
+private fun SessionObjectiveEntity.toSessionObjective() = SessionObjective(
+    objective = objective,
+    hintsUsed = hintsUsed,
+    attempts = attempts
+)
+
+/** The sort order is the list order, which [SessionDao.saveComplete] stamps on the way in. */
+private fun SessionObjective.toEntity(sessionId: Long) = SessionObjectiveEntity(
+    sessionId = sessionId,
+    objective = objective,
+    hintsUsed = hintsUsed,
+    attempts = attempts
 )
 
 private fun PlayerEntity.toParticipant() = ParticipantForm(
