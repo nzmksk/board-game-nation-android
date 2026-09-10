@@ -163,6 +163,7 @@ class SessionRepository @Inject constructor(
             endCondition = endCondition,
             endReason = session.endReason?.takeIf { endCondition == SessionEndCondition.SPECIFIC },
             isTeachingGame = session.isTeachingGame,
+            isInvalid = session.isInvalid,
             notes = session.notes,
             photoUri = session.photoUri,
             participants = participants,
@@ -204,6 +205,7 @@ class SessionRepository @Inject constructor(
             // set beside it, so the two cannot drift apart.
             isIncomplete = form.isIncomplete,
             isTeachingGame = form.isTeachingGame,
+            isInvalid = form.isInvalid,
             isDraft = false,
             pausedMs = form.pausedMs,
             photoUri = form.photoUri,

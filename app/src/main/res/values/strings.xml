@@ -231,6 +231,8 @@
     <string name="session_edit_seating_partial">Seat everyone to see who sat next to whom.</string>
     <string name="session_edit_seating_clear">Clear seating</string>
     <string name="session_edit_teaching">Someone was learning</string>
+    <string name="session_edit_invalid">We played it wrong</string>
+    <string name="session_edit_invalid_help">Wrong setup or a rule misread. The play stays in your log and counts towards nothing.</string>
     <string name="session_edit_coop_win">We won</string>
     <string name="session_edit_coop_loss">We lost</string>
     <string name="session_edit_mode">Mode or configuration</string>

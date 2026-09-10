@@ -66,6 +66,19 @@ data class SessionForm(
     val endReason: String? = null,
 
     val isTeachingGame: Boolean = false,
+
+    /**
+     * The table played the wrong game: a piece set up wrongly, a rule read wrongly, and
+     * nobody noticed until afterwards. The play stays in the log and drops out of every
+     * statistic.
+     *
+     * Independent of [endCondition] rather than another value of it. How a play ended
+     * and whether it was the right game are two different questions, and an evening can
+     * easily answer both -- a misplayed game abandoned halfway through is still
+     * abandoned.
+     */
+    val isInvalid: Boolean = false,
+
     val notes: String? = null,
     val photoUri: String? = null,
     val participants: List<ParticipantForm> = emptyList(),
