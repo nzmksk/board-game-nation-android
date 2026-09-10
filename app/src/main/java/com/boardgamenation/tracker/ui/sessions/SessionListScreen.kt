@@ -369,6 +369,17 @@ fun SessionRow(session: SessionListItem, showGameTitle: Boolean, onClick: () -> 
                 // Flows rather than a Row: these badges wrap onto a second line on a
                 // narrow screen instead of the last one being clipped off the card.
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // First, and the only badge in the app coloured as an error: it does
+                    // not qualify the result on the row above, it withdraws it. Nothing
+                    // else on the screen says so, because every statistic has already
+                    // dropped this play without leaving a mark.
+                    if (session.isInvalid) {
+                        Text(
+                            text = stringResource(R.string.session_invalid),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                     // Deliberately not styled like "Unfinished" next to it: the game did
                     // finish, it just finished the moment a condition was met.
                     session.endReason?.let { reason ->

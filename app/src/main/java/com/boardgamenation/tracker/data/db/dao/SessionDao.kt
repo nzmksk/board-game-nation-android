@@ -34,7 +34,7 @@ interface SessionDao {
             s.id, s.game_id, g.title AS game_title, g.thumbnail_path,
             s.played_on, s.duration_minutes, s.player_count, s.location,
             s.is_cooperative, (s.coop_outcome = 'WIN') AS coop_won, s.mode,
-            s.is_incomplete, s.is_teaching_game, s.end_reason,
+            s.is_incomplete, s.is_teaching_game, s.is_invalid, s.end_reason,
             (
                 SELECT sp.team FROM session_players sp
                 WHERE sp.session_id = s.id AND sp.is_winner = 1
@@ -71,7 +71,7 @@ interface SessionDao {
             s.id, s.game_id, g.title AS game_title, g.thumbnail_path,
             s.played_on, s.duration_minutes, s.player_count, s.location,
             s.is_cooperative, (s.coop_outcome = 'WIN') AS coop_won, s.mode,
-            s.is_incomplete, s.is_teaching_game, s.end_reason,
+            s.is_incomplete, s.is_teaching_game, s.is_invalid, s.end_reason,
             (
                 SELECT sp.team FROM session_players sp
                 WHERE sp.session_id = s.id AND sp.is_winner = 1
@@ -262,7 +262,7 @@ interface SessionDao {
             s.id, s.game_id, g.title AS game_title, g.thumbnail_path,
             s.played_on, s.duration_minutes, s.player_count, s.location,
             s.is_cooperative, (s.coop_outcome = 'WIN') AS coop_won, s.mode,
-            s.is_incomplete, s.is_teaching_game, s.end_reason,
+            s.is_incomplete, s.is_teaching_game, s.is_invalid, s.end_reason,
             NULL AS winning_team,
             NULL AS winner_names,
             (

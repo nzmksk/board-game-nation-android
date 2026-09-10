@@ -715,6 +715,10 @@ class SessionDaoTest {
     fun `a flagged play stays in the session list`() = runTest {
         val id = repository.save(form(listOf(me to 10.0, ben to 8.0)).copy(isInvalid = true))
 
-        assertEquals(listOf(id), repository.observeSessions(SessionFilter()).first().map { it.id })
+        val listed = repository.observeSessions(SessionFilter()).first().single()
+
+        assertEquals(id, listed.id)
+        // Badged, so the row does not read as an ordinary result that counts for nothing.
+        assertTrue(listed.isInvalid)
     }
 }

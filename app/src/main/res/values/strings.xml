@@ -197,6 +197,7 @@
     <string name="session_coop_loss">Table lost</string>
     <string name="session_incomplete">Unfinished</string>
     <string name="session_teaching">Teaching game</string>
+    <string name="session_invalid">Played wrong · not counted</string>
     <string name="session_filter_any_game">Any game</string>
     <string name="session_filter_any_player">Anyone</string>
     <string name="sessions_drafts_header">Unfinished sessions</string>
