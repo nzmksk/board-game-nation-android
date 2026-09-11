@@ -65,7 +65,6 @@ class BggXmlParser @Inject constructor() {
             val mechanics = mutableListOf<String>()
             val categories = mutableListOf<String>()
             val expands = mutableListOf<Long>()
-            val bestVotes = mutableMapOf<String, Int>()
 
             walkItem(parser) { child ->
                 when (child) {
@@ -112,16 +111,8 @@ class BggXmlParser @Inject constructor() {
                                 }
                         }
                     }
-
-                    "poll-summary", "poll" -> Unit
-
-                    "results" -> Unit
                 }
             }
-
-            // The suggested-players poll is nested two levels deep, so it is easier to
-            // pull out of the raw text than to thread state through the walk above.
-            collectBestPlayerVotes(xml, id, bestVotes)
 
             name?.let {
                 things += BggThing(
@@ -141,7 +132,6 @@ class BggXmlParser @Inject constructor() {
                     thumbnailUrl = thumbnail,
                     imageUrl = image,
                     isExpansion = type == "boardgameexpansion",
-                    bestPlayerCount = summariseBest(bestVotes),
                     expandsBggIds = expands.distinct()
                 )
             }
@@ -275,45 +265,5 @@ class BggXmlParser @Inject constructor() {
         nextText().trim().takeIf { it.isNotEmpty() }
     } catch (_: Exception) {
         null
-    }
-
-    /**
-     * Counts "Best" votes per player count for one item.
-     *
-     * Done with a targeted text scan rather than another pass of the pull parser: the
-     * poll is three levels of nesting deep inside a structure the parser has already
-     * moved past, and re-walking the document for it would be more code, not less.
-     */
-    private fun collectBestPlayerVotes(xml: String, id: Long, into: MutableMap<String, Int>) {
-        val itemStart = xml.indexOf("id=\"$id\"").takeIf { it >= 0 } ?: return
-        val itemEnd = xml.indexOf("</item>", itemStart).takeIf { it >= 0 } ?: xml.length
-        val slice = xml.substring(itemStart, itemEnd)
-        val pollStart = slice.indexOf("suggested_numplayers").takeIf { it >= 0 } ?: return
-        val pollEnd = slice.indexOf("</poll>", pollStart).takeIf { it >= 0 } ?: return
-        val poll = slice.substring(pollStart, pollEnd)
-
-        val resultsRegex = Regex("""<results numplayers="([^"]+)">(.*?)</results>""", RegexOption.DOT_MATCHES_ALL)
-        val bestRegex = Regex("""value="Best"\s+numvotes="(\d+)"""")
-        resultsRegex.findAll(poll).forEach { match ->
-            val players = match.groupValues[1]
-            val votes = bestRegex.find(match.groupValues[2])?.groupValues?.get(1)?.toIntOrNull()
-            if (votes != null && votes > 0) into[players] = votes
-        }
-    }
-
-    /**
-     * Turns the vote tally into a label. Counts within 80% of the winner are included, so
-     * a game the community considers good at both 3 and 4 reads as "3–4" rather than
-     * picking one arbitrarily.
-     */
-    private fun summariseBest(votes: Map<String, Int>): String? {
-        if (votes.isEmpty()) return null
-        val top = votes.values.max()
-        if (top == 0) return null
-        val threshold = top * 0.8
-        val winners = votes.filterValues { it >= threshold }.keys
-            .sortedBy { it.removeSuffix("+").toIntOrNull() ?: Int.MAX_VALUE }
-        if (winners.isEmpty()) return null
-        return if (winners.size == 1) winners.first() else "${winners.first()}–${winners.last()}"
     }
 }
