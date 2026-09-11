@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.DateRange
@@ -46,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
@@ -128,6 +130,7 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, trailing: (@Comp
  */
 @Composable
 fun StatTile(label: String, value: String, modifier: Modifier = Modifier, supporting: String? = null) {
+    val headline = MaterialTheme.typography.headlineSmall
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(
@@ -145,7 +148,16 @@ fun StatTile(label: String, value: String, modifier: Modifier = Modifier, suppor
             Spacer(Modifier.height(4.dp))
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineSmall,
+                style = headline,
+                // Three of these sit in a row, so a tile is a third of the screen wide
+                // and the longest figure it has to hold is a sum of money. Shrinking to
+                // fit costs a couple of points of type; the alternative is a number cut
+                // off mid-digit, which is worse than a small one and says nothing about
+                // having been cut.
+                autoSize = TextAutoSize.StepBased(
+                    minFontSize = 14.sp,
+                    maxFontSize = headline.fontSize
+                ),
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1
             )
