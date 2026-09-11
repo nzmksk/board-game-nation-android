@@ -54,11 +54,23 @@ interface GameDao {
     @Query("SELECT * FROM games ORDER BY title COLLATE NOCASE")
     suspend fun getAllGames(): List<GameEntity>
 
-    /** Base games only, for pickers where an expansion makes no sense as the subject. */
+    /**
+     * Base games only, for pickers where an expansion makes no sense as the subject.
+     *
+     * Every base game, whatever its status. A play is logged against a game, so a picker
+     * that asked for a copy on the shelf was a picker that could not record the night
+     * spent on somebody else's -- the very thing [GameStatus.PLAYED_NOT_OWNED] exists to
+     * say. It cut the other way too: selling a game took its own past plays out of reach,
+     * because the session form finds the game it is editing in this list and found
+     * nothing, so an old play reopened claiming no game was chosen.
+     *
+     * A wishlist entry stays on offer as well. Playing a game before buying it is how
+     * most of them get onto the list, and the play is what the form is there to record.
+     */
     @Query(
         """
         SELECT * FROM games
-        WHERE is_expansion = 0 AND status IN ('OWNED', 'LENT_OUT')
+        WHERE is_expansion = 0
         ORDER BY title COLLATE NOCASE
         """
     )
