@@ -131,7 +131,6 @@
         <item quantity="other">Out for %1$d days</item>
     </plurals>
     <string name="game_detail_weight">Weight</string>
-    <string name="game_detail_best_at">Best at %1$s</string>
     <string name="game_detail_designers">Designers</string>
     <string name="game_detail_publishers">Publishers</string>
     <string name="game_detail_bgg_rating">BGG rating</string>
@@ -153,7 +152,6 @@
     <string name="game_edit_year">Year published</string>
     <string name="game_edit_min_players">Min players</string>
     <string name="game_edit_max_players">Max players</string>
-    <string name="game_edit_best_players">Best with</string>
     <string name="game_edit_min_playtime">Min minutes</string>
     <string name="game_edit_max_playtime">Max minutes</string>
     <string name="game_edit_weight">Weight (1–5)</string>

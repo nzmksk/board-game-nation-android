@@ -161,13 +161,6 @@ fun GameEditScreen(
                         onChange = { value -> viewModel.update { it.copy(maxPlayers = value) } },
                         modifier = Modifier.weight(1f)
                     )
-                    OutlinedTextField(
-                        value = state.bestPlayerCount,
-                        onValueChange = { v -> viewModel.update { it.copy(bestPlayerCount = v) } },
-                        label = { Text(stringResource(R.string.game_edit_best_players)) },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
                 }
             }
 

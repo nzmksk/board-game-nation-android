@@ -41,7 +41,6 @@ data class GameEditState(
     val yearPublished: String = "",
     val minPlayers: String = "",
     val maxPlayers: String = "",
-    val bestPlayerCount: String = "",
     val minPlaytime: String = "",
     val maxPlaytime: String = "",
     val weight: String = "",
@@ -119,7 +118,6 @@ class GameEditViewModel @Inject constructor(
                         yearPublished = game.yearPublished?.toString().orEmpty(),
                         minPlayers = game.minPlayers?.toString().orEmpty(),
                         maxPlayers = game.maxPlayers?.toString().orEmpty(),
-                        bestPlayerCount = game.bestPlayerCount.orEmpty(),
                         minPlaytime = game.minPlaytimeMinutes?.toString().orEmpty(),
                         maxPlaytime = game.maxPlaytimeMinutes?.toString().orEmpty(),
                         weight = game.weight?.toString().orEmpty(),
@@ -222,7 +220,9 @@ class GameEditViewModel @Inject constructor(
                 yearPublished = current.yearPublished.toIntOrNull(),
                 minPlayers = current.minPlayers.toIntOrNull(),
                 maxPlayers = current.maxPlayers.toIntOrNull(),
-                bestPlayerCount = current.bestPlayerCount.trim().ifBlank { null },
+                // Nothing edits this any more, but the column is still the only copy of
+                // what people have already typed, so an edit writes it back untouched.
+                bestPlayerCount = existing?.bestPlayerCount,
                 minPlaytimeMinutes = current.minPlaytime.toIntOrNull(),
                 maxPlaytimeMinutes = current.maxPlaytime.toIntOrNull(),
                 weight = current.weight.toDoubleOrNull(),

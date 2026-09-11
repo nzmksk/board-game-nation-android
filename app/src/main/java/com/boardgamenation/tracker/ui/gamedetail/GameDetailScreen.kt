@@ -371,13 +371,6 @@ private fun HeaderCard(game: GameEntity, state: GameDetailUiState) {
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            game.bestPlayerCount?.let {
-                Text(
-                    text = stringResource(R.string.game_detail_best_at, it),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
             if (state.daysOnLoan != null && game.status == GameStatus.LENT_OUT) {
                 Text(
                     text = pluralStringResource(
