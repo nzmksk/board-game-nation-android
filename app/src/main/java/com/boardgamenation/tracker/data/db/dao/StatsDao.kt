@@ -242,21 +242,35 @@ interface StatsDao {
 
     /**
      * H-index: the largest N where at least N games have been played at least N times.
-     * The correlated count is the window-function-free way to rank the play counts.
+     *
+     * Read per distinct play count rather than per ranked game. For a count of N plays,
+     * the correlated subquery says how many games reached it, and `MIN` of the two is
+     * the largest index that count alone can support: ten plays of one game support an
+     * h-index of 1, and one play of ten games also supports 1. The biggest of those is
+     * the h-index, and a shelf with no plays on it has none, hence the `COALESCE`.
+     *
+     * Counting the games that outrank their own position -- the obvious reading, and the
+     * one this query used to carry -- collapses on ties, because every game tied on a
+     * count is given the rank of the last of them. Three games played twice each are all
+     * ranked third, all fail 2 >= 3, and an h-index of 2 reads as 0. Ties are the normal
+     * shape of a real shelf, not an edge case: most games on it share a play count with
+     * several others.
+     *
+     * Still free of window functions, for the reason given at the top of this file.
      */
     @Query(
         """
-        SELECT COUNT(*) FROM (
-            SELECT s.game_id AS gid, COUNT(*) AS plays
-            FROM sessions s WHERE s.is_draft = 0 AND s.is_invalid = 0 GROUP BY s.game_id
-        ) t
-        WHERE t.plays >= (
+        SELECT COALESCE(MAX(MIN(t.plays, (
             SELECT COUNT(*) FROM (
                 SELECT s2.game_id AS gid2, COUNT(*) AS plays2
                 FROM sessions s2 WHERE s2.is_draft = 0 AND s2.is_invalid = 0 GROUP BY s2.game_id
             ) t2
             WHERE t2.plays2 >= t.plays
-        )
+        ))), 0)
+        FROM (
+            SELECT s.game_id AS gid, COUNT(*) AS plays
+            FROM sessions s WHERE s.is_draft = 0 AND s.is_invalid = 0 GROUP BY s.game_id
+        ) t
         """
     )
     fun observeHIndex(): Flow<Int>
