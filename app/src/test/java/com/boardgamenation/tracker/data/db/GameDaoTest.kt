@@ -453,6 +453,33 @@ class GameDaoTest {
         )
     }
 
+    /**
+     * A play is logged against a game, so this list is the whole of the answer to which
+     * games can have plays. Asking it for a copy on the shelf left out the night spent
+     * on somebody else's and put a sold game's own history out of reach.
+     */
+    @Test
+    fun `every base game is offered as the subject of a play, whatever its status`() = runTest {
+        GameStatus.entries.forEach { status ->
+            gameDao.insert(DatabaseTestFixture.game(status.name, status = status))
+        }
+
+        assertEquals(
+            GameStatus.entries.map { it.name }.sorted(),
+            gameDao.observeBaseGames().first().map { it.title }.sorted()
+        )
+    }
+
+    @Test
+    fun `an expansion is not offered as the subject of a play`() = runTest {
+        val baseId = gameDao.insert(DatabaseTestFixture.game("Ark Nova"))
+        gameDao.insert(
+            DatabaseTestFixture.game("Marine Worlds", isExpansion = true, baseGameId = baseId)
+        )
+
+        assertEquals(listOf("Ark Nova"), gameDao.observeBaseGames().first().map { it.title })
+    }
+
     @Test
     fun `another game's factions do not leak in`() = runTest {
         val wonders = gameDao.insert(DatabaseTestFixture.game("7 Wonders"))
