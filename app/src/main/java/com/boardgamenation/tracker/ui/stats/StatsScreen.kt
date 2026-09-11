@@ -338,18 +338,19 @@ private fun ValueTab(viewModel: StatsViewModel) {
         item { SectionHeader(stringResource(R.string.stats_least_economical)) }
         item { ChartCard { MoneyList(stats.worstValue.map { it.toMoneyRow() }) } }
 
-        item { SectionHeader(stringResource(R.string.stats_spend_by_year)) }
-        item { ChartCard { VerticalBarChart(stats.spendByYear.toPairs()) } }
-
+        // Directly under the two it belongs with: best value, worst value, and then the
+        // games with no value at all, read down the column as one answer.
         item { SectionHeader(stringResource(R.string.stats_dead_weight)) }
         item {
             ChartCard {
-                HorizontalBarChart(
-                    stats.deadWeight.toPairs(),
-                    valueFormatter = { String.format(locale, "%.0f", it) }
+                MoneyList(
+                    stats.deadWeight.map { MoneyRow(it.label, it.value, stats.currency) }
                 )
             }
         }
+
+        item { SectionHeader(stringResource(R.string.stats_spend_by_year)) }
+        item { ChartCard { VerticalBarChart(stats.spendByYear.toPairs()) } }
     }
 }
 
