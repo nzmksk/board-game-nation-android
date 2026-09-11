@@ -462,8 +462,8 @@ private fun StatsRow(state: GameDetailUiState) {
                 label = stringResource(R.string.game_detail_avg_duration),
                 value = aggregates.avgMinutes?.let { DurationFormat.minutes(it.toInt()) } ?: "—",
                 supporting = state.game?.let { game ->
-                    // Showing what BGG claims next to what actually happens is the point;
-                    // the divergence is usually the more interesting number.
+                    // Showing what the box claims next to what actually happens is the
+                    // point; the divergence is usually the more interesting number.
                     if (game.minPlaytimeMinutes != null && game.maxPlaytimeMinutes != null) {
                         stringResource(R.string.game_detail_stated_duration) +
                             " ${game.minPlaytimeMinutes}–${game.maxPlaytimeMinutes}m"

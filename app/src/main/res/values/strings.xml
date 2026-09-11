@@ -103,7 +103,7 @@
     <string name="game_detail_hours">Hours</string>
     <string name="game_detail_win_rate">Win rate</string>
     <string name="game_detail_avg_duration">Average length</string>
-    <string name="game_detail_stated_duration">BGG says</string>
+    <string name="game_detail_stated_duration">Publisher label</string>
     <string name="game_detail_cost_per_play">Cost per play</string>
     <string name="game_detail_never_played">Never played</string>
     <string name="game_detail_first_player">Does going first win?</string>
