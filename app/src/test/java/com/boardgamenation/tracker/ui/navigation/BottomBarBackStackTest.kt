@@ -106,10 +106,7 @@ class BottomBarBackStackTest {
         val taps = TopLevelDestination.entries
         val extras = listOf<Pair<String, NavHostController.() -> Unit>>(
             "open game" to { navigate(Route.GameDetail(1)) },
-            "back" to {
-                popBackStack()
-                Unit
-            }
+            "back" to { popBackStack() }
         )
         val actions = taps.map { it.name to { c: NavHostController -> c.tap(it) } } +
             extras.map { (label, action) -> label to { c: NavHostController -> c.action() } }

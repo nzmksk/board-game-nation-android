@@ -4,6 +4,7 @@ import android.content.Context
 import android.webkit.MimeTypeMap
 import androidx.test.core.app.ApplicationProvider
 import java.io.File
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -18,6 +19,7 @@ import org.robolectric.RobolectricTestRunner
  * Only the file is exercised. Wrapping it in a uri is `FileProvider`'s job and
  * `FileProvider` insists on a real installed app to find its roots in.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class SessionPhotoCapturesTest {
 

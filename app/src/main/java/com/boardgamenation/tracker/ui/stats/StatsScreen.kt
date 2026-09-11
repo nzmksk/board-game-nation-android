@@ -283,7 +283,7 @@ private fun PlaysTab(viewModel: StatsViewModel) {
         item {
             ChartCard {
                 HorizontalBarChart(
-                    stats.longest.map { it.gameTitle to it.durationMinutes.toDouble() },
+                    stats.longest.map { it.label to it.value },
                     valueFormatter = { DurationFormat.minutes(it.roundToInt()) }
                 )
             }
@@ -293,7 +293,7 @@ private fun PlaysTab(viewModel: StatsViewModel) {
         item {
             ChartCard {
                 HorizontalBarChart(
-                    stats.shortest.map { it.gameTitle to it.durationMinutes.toDouble() },
+                    stats.shortest.map { it.label to it.value },
                     valueFormatter = { DurationFormat.minutes(it.roundToInt()) }
                 )
             }

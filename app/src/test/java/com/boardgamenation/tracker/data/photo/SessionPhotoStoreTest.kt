@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import java.io.ByteArrayInputStream
 import java.io.File
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
@@ -20,6 +21,7 @@ import org.robolectric.Shadows.shadowOf
  * What matters here is that the bytes stop depending on the picker's grant: after a
  * store there is a file the app owns, and it is still readable with nothing but a path.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class SessionPhotoStoreTest {
 

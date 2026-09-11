@@ -11,7 +11,6 @@ import com.boardgamenation.tracker.data.db.projection.HeadToHeadRow
 import com.boardgamenation.tracker.data.db.projection.LabelledValue
 import com.boardgamenation.tracker.data.db.projection.PersonalBestRow
 import com.boardgamenation.tracker.data.db.projection.PlayerStandingRow
-import com.boardgamenation.tracker.data.db.projection.SessionListItem
 import com.boardgamenation.tracker.domain.model.TagKind
 import com.boardgamenation.tracker.domain.stats.StreakResult
 import com.boardgamenation.tracker.domain.stats.Streaks
@@ -41,8 +40,8 @@ class StatsRepository @Inject constructor(private val statsDao: StatsDao, privat
     fun playsByMonth(): Flow<List<LabelledValue>> = statsDao.observePlaysByMonth()
     fun playsByDayOfWeek(): Flow<List<LabelledValue>> = statsDao.observePlaysByDayOfWeek()
     fun mostPlayed(limit: Int = 10): Flow<List<LabelledValue>> = statsDao.observeMostPlayed(limit)
-    fun longestSessions(limit: Int = 5): Flow<List<SessionListItem>> = statsDao.observeExtremeSessions(longest = true, limit = limit)
-    fun shortestSessions(limit: Int = 5): Flow<List<SessionListItem>> = statsDao.observeExtremeSessions(longest = false, limit = limit)
+    fun longestSessions(limit: Int = 5): Flow<List<LabelledValue>> = statsDao.observeExtremeSessions(longest = true, limit = limit)
+    fun shortestSessions(limit: Int = 5): Flow<List<LabelledValue>> = statsDao.observeExtremeSessions(longest = false, limit = limit)
     fun durationVsExpected(minPlays: Int = 2, limit: Int = 10): Flow<List<DurationVsExpectedRow>> =
         statsDao.observeDurationVsExpected(minPlays, limit)
     fun hIndex(): Flow<Int> = statsDao.observeHIndex()
