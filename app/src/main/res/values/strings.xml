@@ -387,8 +387,8 @@
     <string name="stats_most_played">Most played</string>
     <string name="stats_longest_sessions">Longest sessions</string>
     <string name="stats_shortest_sessions">Shortest sessions</string>
-    <string name="stats_duration_vs_bgg">Actual length vs BGG</string>
-    <string name="stats_duration_vs_bgg_body">How long games really take at your table.</string>
+    <string name="stats_duration_vs_stated">Actual length vs publisher label</string>
+    <string name="stats_duration_vs_stated_body">How long games really take at your table.</string>
     <string name="stats_by_day_of_week">Plays by day</string>
     <string name="stats_streak">Week streak</string>
     <string name="stats_h_index">H-index</string>

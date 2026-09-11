@@ -254,12 +254,12 @@ private fun PlaysTab(viewModel: StatsViewModel) {
             }
         }
 
-        item { SectionHeader(stringResource(R.string.stats_duration_vs_bgg)) }
+        item { SectionHeader(stringResource(R.string.stats_duration_vs_stated)) }
         item {
             ChartCard {
                 Column {
                     Text(
-                        text = stringResource(R.string.stats_duration_vs_bgg_body),
+                        text = stringResource(R.string.stats_duration_vs_stated_body),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
