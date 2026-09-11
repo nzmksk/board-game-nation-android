@@ -271,7 +271,6 @@ class CsvImporter @Inject constructor(
                     yearPublished = row.int("year_published"),
                     minPlayers = row.int("min_players"),
                     maxPlayers = row.int("max_players"),
-                    bestPlayerCount = row.string("best_player_count"),
                     minPlaytimeMinutes = row.int("min_playtime_minutes"),
                     maxPlaytimeMinutes = row.int("max_playtime_minutes"),
                     weight = row.double("weight"),

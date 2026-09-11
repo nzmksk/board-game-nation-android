@@ -128,7 +128,6 @@ class DevFixtures @Inject constructor(
                     yearPublished = spec.year,
                     minPlayers = spec.minPlayers,
                     maxPlayers = spec.maxPlayers,
-                    bestPlayerCount = spec.best,
                     minPlaytimeMinutes = spec.minTime,
                     maxPlaytimeMinutes = spec.maxTime,
                     weight = spec.weight,
@@ -395,7 +394,6 @@ class DevFixtures @Inject constructor(
         val year: Int,
         val minPlayers: Int,
         val maxPlayers: Int,
-        val best: String,
         val minTime: Int,
         val maxTime: Int,
         val weight: Double,
@@ -444,184 +442,184 @@ class DevFixtures @Inject constructor(
 
         val CATALOGUE = listOf(
             GameSpec(
-                "Catan", 1995, 3, 4, "4", 60, 120, 2.3, 150.0, "Klaus Teuber", "Kosmos",
+                "Catan", 1995, 3, 4, 60, 120, 2.3, 150.0, "Klaus Teuber", "Kosmos",
                 listOf("Trading", "Dice Rolling", "Network Building"), listOf("Economic", "Negotiation")
             ),
             GameSpec(
-                "Wingspan", 2019, 1, 5, "3", 40, 70, 2.4, 220.0, "Elizabeth Hargrave", "Stonemaier",
+                "Wingspan", 2019, 1, 5, 40, 70, 2.4, 220.0, "Elizabeth Hargrave", "Stonemaier",
                 listOf("Engine Building", "Card Drafting", "Set Collection"), listOf("Animals", "Card Game")
             ),
             GameSpec(
-                "Terraforming Mars", 2016, 1, 5, "3", 120, 180, 3.3, 260.0, "Jacob Fryxelius", "FryxGames",
+                "Terraforming Mars", 2016, 1, 5, 120, 180, 3.3, 260.0, "Jacob Fryxelius", "FryxGames",
                 listOf("Engine Building", "Card Drafting", "Tile Placement"), listOf("Economic", "Science Fiction")
             ),
             GameSpec(
-                "Brass: Birmingham", 2018, 2, 4, "3-4", 60, 120, 3.9, 300.0, "Martin Wallace", "Roxley",
+                "Brass: Birmingham", 2018, 2, 4, 60, 120, 3.9, 300.0, "Martin Wallace", "Roxley",
                 listOf("Network Building", "Hand Management"), listOf("Economic", "Industry")
             ),
             GameSpec(
-                "Gloomhaven: Jaws of the Lion", 2020, 1, 4, "3", 30, 120, 3.6, 280.0, "Isaac Childres", "Cephalofair",
+                "Gloomhaven: Jaws of the Lion", 2020, 1, 4, 30, 120, 3.6, 280.0, "Isaac Childres", "Cephalofair",
                 listOf("Hand Management", "Campaign"), listOf("Adventure", "Fantasy"),
                 scoring = ScoringMode.COOPERATIVE
             ),
             GameSpec(
-                "Pandemic", 2008, 2, 4, "4", 45, 45, 2.4, 140.0, "Matt Leacock", "Z-Man",
+                "Pandemic", 2008, 2, 4, 45, 45, 2.4, 140.0, "Matt Leacock", "Z-Man",
                 listOf("Hand Management", "Set Collection"), listOf("Medical"),
                 scoring = ScoringMode.COOPERATIVE,
                 endsEarlyBy = listOf("Uncontrolled outbreak", "Out of player cards", "Out of cubes")
             ),
             GameSpec(
-                "7 Wonders", 2010, 3, 7, "5", 30, 30, 2.3, 170.0, "Antoine Bauza", "Repos",
+                "7 Wonders", 2010, 3, 7, 30, 30, 2.3, 170.0, "Antoine Bauza", "Repos",
                 listOf("Card Drafting", "Set Collection"), listOf("Ancient", "Civilization")
             ),
             GameSpec(
-                "Azul", 2017, 2, 4, "2", 30, 45, 1.8, 130.0, "Michael Kiesling", "Next Move",
+                "Azul", 2017, 2, 4, 30, 45, 1.8, 130.0, "Michael Kiesling", "Next Move",
                 listOf("Tile Placement", "Set Collection"), listOf("Abstract")
             ),
             GameSpec(
-                "Root", 2018, 2, 4, "4", 60, 90, 3.8, 250.0, "Cole Wehrle", "Leder Games",
+                "Root", 2018, 2, 4, 60, 90, 3.8, 250.0, "Cole Wehrle", "Leder Games",
                 listOf("Area Majority", "Hand Management"), listOf("Fantasy", "Wargame")
             ),
             GameSpec(
-                "Spirit Island", 2017, 1, 4, "2", 90, 120, 4.1, 290.0, "R. Eric Reuss", "Greater Than Games",
+                "Spirit Island", 2017, 1, 4, 90, 120, 4.1, 290.0, "R. Eric Reuss", "Greater Than Games",
                 listOf("Hand Management", "Area Majority"), listOf("Fantasy"),
                 scoring = ScoringMode.COOPERATIVE
             ),
             GameSpec(
-                "Ticket to Ride", 2004, 2, 5, "4", 30, 60, 1.8, 160.0, "Alan R. Moon", "Days of Wonder",
+                "Ticket to Ride", 2004, 2, 5, 30, 60, 1.8, 160.0, "Alan R. Moon", "Days of Wonder",
                 listOf("Network Building", "Set Collection"), listOf("Trains")
             ),
             GameSpec(
-                "Codenames", 2015, 2, 8, "6", 15, 15, 1.3, 70.0, "Vlaada Chvatil", "CGE",
+                "Codenames", 2015, 2, 8, 15, 15, 1.3, 70.0, "Vlaada Chvatil", "CGE",
                 listOf("Team Play", "Deduction"), listOf("Party", "Word Game"),
                 scoring = ScoringMode.NONE
             ),
             GameSpec(
-                "The Crew", 2019, 2, 5, "4", 20, 20, 2.0, 60.0, "Thomas Sing", "KOSMOS",
+                "The Crew", 2019, 2, 5, 20, 20, 2.0, 60.0, "Thomas Sing", "KOSMOS",
                 listOf("Trick-taking", "Team Play"), listOf("Card Game"),
                 scoring = ScoringMode.COOPERATIVE
             ),
             GameSpec(
-                "Everdell", 2018, 1, 4, "3", 40, 80, 2.8, 240.0, "James A. Wilson", "Starling",
+                "Everdell", 2018, 1, 4, 40, 80, 2.8, 240.0, "James A. Wilson", "Starling",
                 listOf("Worker Placement", "Card Drafting"), listOf("Animals", "Fantasy")
             ),
             GameSpec(
-                "Scythe", 2016, 1, 5, "4", 90, 115, 3.4, 280.0, "Jamey Stegmaier", "Stonemaier",
+                "Scythe", 2016, 1, 5, 90, 115, 3.4, 280.0, "Jamey Stegmaier", "Stonemaier",
                 listOf("Area Majority", "Worker Placement"), listOf("Economic", "Science Fiction")
             ),
             GameSpec(
-                "Splendor", 2014, 2, 4, "3", 30, 30, 1.8, 120.0, "Marc Andre", "Space Cowboys",
+                "Splendor", 2014, 2, 4, 30, 30, 1.8, 120.0, "Marc Andre", "Space Cowboys",
                 listOf("Engine Building", "Set Collection"), listOf("Economic", "Renaissance")
             ),
             GameSpec(
-                "Kingdomino", 2016, 2, 4, "4", 15, 20, 1.2, 80.0, "Bruno Cathala", "Blue Orange",
+                "Kingdomino", 2016, 2, 4, 15, 20, 1.2, 80.0, "Bruno Cathala", "Blue Orange",
                 listOf("Tile Placement", "Drafting"), listOf("Abstract")
             ),
             GameSpec(
-                "Dune: Imperium", 2020, 1, 4, "4", 60, 120, 3.1, 270.0, "Paul Dennen", "Dire Wolf",
+                "Dune: Imperium", 2020, 1, 4, 60, 120, 3.1, 270.0, "Paul Dennen", "Dire Wolf",
                 listOf("Deck Building", "Worker Placement"), listOf("Science Fiction")
             ),
             GameSpec(
-                "Ark Nova", 2021, 1, 4, "2", 90, 150, 3.7, 320.0, "Mathias Wigge", "Feuerland",
+                "Ark Nova", 2021, 1, 4, 90, 150, 3.7, 320.0, "Mathias Wigge", "Feuerland",
                 listOf("Card Drafting", "Tile Placement"), listOf("Animals", "Economic")
             ),
             GameSpec(
-                "Cascadia", 2021, 1, 4, "2", 30, 45, 1.8, 140.0, "Randy Flynn", "Flatout",
+                "Cascadia", 2021, 1, 4, 30, 45, 1.8, 140.0, "Randy Flynn", "Flatout",
                 listOf("Tile Placement", "Set Collection"), listOf("Animals", "Abstract")
             ),
             GameSpec(
-                "Res Arcana", 2019, 2, 4, "2", 20, 60, 2.7, 150.0, "Tom Lehmann", "Sand Castle",
+                "Res Arcana", 2019, 2, 4, 20, 60, 2.7, 150.0, "Tom Lehmann", "Sand Castle",
                 listOf("Engine Building", "Hand Management"), listOf("Fantasy", "Card Game")
             ),
             GameSpec(
-                "Concordia", 2013, 2, 5, "4", 90, 120, 3.0, 230.0, "Mac Gerdts", "PD-Verlag",
+                "Concordia", 2013, 2, 5, 90, 120, 3.0, 230.0, "Mac Gerdts", "PD-Verlag",
                 listOf("Deck Building", "Network Building"), listOf("Ancient", "Economic")
             ),
             GameSpec(
-                "Great Western Trail", 2016, 2, 4, "3", 75, 150, 3.7, 250.0, "Alexander Pfister", "eggertspiele",
+                "Great Western Trail", 2016, 2, 4, 75, 150, 3.7, 250.0, "Alexander Pfister", "eggertspiele",
                 listOf("Deck Building", "Worker Placement"), listOf("American West", "Economic")
             ),
             GameSpec(
-                "Just One", 2018, 3, 7, "5", 20, 20, 1.1, 60.0, "Ludovic Roudy", "Repos",
+                "Just One", 2018, 3, 7, 20, 20, 1.1, 60.0, "Ludovic Roudy", "Repos",
                 listOf("Team Play", "Deduction"), listOf("Party", "Word Game"),
                 scoring = ScoringMode.COOPERATIVE
             ),
             GameSpec(
-                "The Mind", 2018, 2, 4, "4", 15, 15, 1.1, 40.0, "Wolfgang Warsch", "NSV",
+                "The Mind", 2018, 2, 4, 15, 15, 1.1, 40.0, "Wolfgang Warsch", "NSV",
                 listOf("Team Play"), listOf("Card Game", "Party"),
                 scoring = ScoringMode.COOPERATIVE
             ),
             GameSpec(
-                "Sushi Go Party", 2016, 2, 8, "5", 20, 20, 1.4, 90.0, "Phil Walker-Harding", "Gamewright",
+                "Sushi Go Party", 2016, 2, 8, 20, 20, 1.4, 90.0, "Phil Walker-Harding", "Gamewright",
                 listOf("Card Drafting", "Set Collection"), listOf("Card Game", "Party")
             ),
             GameSpec(
-                "Love Letter", 2012, 2, 4, "4", 20, 20, 1.2, 35.0, "Seiji Kanai", "AEG",
+                "Love Letter", 2012, 2, 4, 20, 20, 1.2, 35.0, "Seiji Kanai", "AEG",
                 listOf("Deduction", "Hand Management"), listOf("Card Game", "Bluffing")
             ),
             GameSpec(
-                "Skull", 2011, 3, 6, "6", 15, 45, 1.4, 75.0, "Herve Marly", "Lui-meme",
+                "Skull", 2011, 3, 6, 15, 45, 1.4, 75.0, "Herve Marly", "Lui-meme",
                 listOf("Bluffing", "Betting"), listOf("Card Game", "Party")
             ),
             GameSpec(
-                "The Resistance: Avalon", 2012, 5, 10, "7", 30, 30, 1.8, 80.0, "Don Eskridge", "Indie Boards",
+                "The Resistance: Avalon", 2012, 5, 10, 30, 30, 1.8, 80.0, "Don Eskridge", "Indie Boards",
                 listOf("Deduction", "Team Play"), listOf("Bluffing", "Party"),
                 scoring = ScoringMode.NONE
             ),
             GameSpec(
-                "Secret Hitler", 2016, 5, 10, "7", 45, 45, 1.7, 130.0, "Max Temkin", "Goat Wolf",
+                "Secret Hitler", 2016, 5, 10, 45, 45, 1.7, 130.0, "Max Temkin", "Goat Wolf",
                 listOf("Deduction", "Voting"), listOf("Bluffing", "Party"),
                 scoring = ScoringMode.NONE
             ),
             GameSpec(
-                "Patchwork", 2014, 2, 2, "2", 15, 30, 1.6, 100.0, "Uwe Rosenberg", "Lookout",
+                "Patchwork", 2014, 2, 2, 15, 30, 1.6, 100.0, "Uwe Rosenberg", "Lookout",
                 listOf("Tile Placement"), listOf("Abstract", "Puzzle")
             ),
             GameSpec(
-                "Jaipur", 2009, 2, 2, "2", 30, 30, 1.5, 85.0, "Sebastien Pauchon", "Space Cowboys",
+                "Jaipur", 2009, 2, 2, 30, 30, 1.5, 85.0, "Sebastien Pauchon", "Space Cowboys",
                 listOf("Set Collection", "Hand Management"), listOf("Card Game", "Economic")
             ),
             GameSpec(
-                "7 Wonders Duel", 2015, 2, 2, "2", 30, 30, 2.2, 130.0, "Antoine Bauza", "Repos",
+                "7 Wonders Duel", 2015, 2, 2, 30, 30, 2.2, 130.0, "Antoine Bauza", "Repos",
                 listOf("Card Drafting", "Set Collection"), listOf("Ancient", "Civilization"),
                 endsEarlyBy = listOf("Military supremacy", "Scientific supremacy")
             ),
             GameSpec(
-                "Lost Ruins of Arnak", 2020, 1, 4, "2", 30, 120, 2.9, 260.0, "Elwen", "CGE",
+                "Lost Ruins of Arnak", 2020, 1, 4, 30, 120, 2.9, 260.0, "Elwen", "CGE",
                 listOf("Deck Building", "Worker Placement"), listOf("Adventure", "Exploration")
             ),
             GameSpec(
-                "Viticulture Essential", 2015, 1, 6, "4", 45, 90, 2.9, 240.0, "Jamey Stegmaier", "Stonemaier",
+                "Viticulture Essential", 2015, 1, 6, 45, 90, 2.9, 240.0, "Jamey Stegmaier", "Stonemaier",
                 listOf("Worker Placement", "Hand Management"), listOf("Economic", "Farming")
             ),
             GameSpec(
-                "Clank!", 2016, 2, 4, "4", 30, 60, 2.2, 200.0, "Paul Dennen", "Dire Wolf",
+                "Clank!", 2016, 2, 4, 30, 60, 2.2, 200.0, "Paul Dennen", "Dire Wolf",
                 listOf("Deck Building", "Push Your Luck"), listOf("Adventure", "Fantasy")
             ),
             GameSpec(
-                "Photosynthesis", 2017, 2, 4, "3", 30, 60, 2.3, 160.0, "Hjalmar Hach", "Blue Orange",
+                "Photosynthesis", 2017, 2, 4, 30, 60, 2.3, 160.0, "Hjalmar Hach", "Blue Orange",
                 listOf("Area Majority", "Tile Placement"), listOf("Abstract", "Environmental")
             ),
             GameSpec(
-                "Quacks of Quedlinburg", 2018, 2, 4, "4", 45, 45, 1.9, 180.0, "Wolfgang Warsch", "Schmidt",
+                "Quacks of Quedlinburg", 2018, 2, 4, 45, 45, 1.9, 180.0, "Wolfgang Warsch", "Schmidt",
                 listOf("Push Your Luck", "Bag Building"), listOf("Fantasy")
             ),
             GameSpec(
-                "Heat: Pedal to the Metal", 2022, 1, 6, "4", 30, 60, 2.3, 230.0, "Asger Sams Granerud", "Days of Wonder",
+                "Heat: Pedal to the Metal", 2022, 1, 6, 30, 60, 2.3, 230.0, "Asger Sams Granerud", "Days of Wonder",
                 listOf("Hand Management", "Racing"), listOf("Racing", "Sports")
             ),
             GameSpec(
-                "Frosthaven", 2023, 1, 4, "3", 60, 120, 4.2, 600.0, "Isaac Childres", "Cephalofair",
+                "Frosthaven", 2023, 1, 4, 60, 120, 4.2, 600.0, "Isaac Childres", "Cephalofair",
                 listOf("Hand Management", "Campaign"), listOf("Adventure", "Fantasy"),
                 scoring = ScoringMode.COOPERATIVE
             ),
             GameSpec(
-                "Nucleum", 2023, 1, 4, "3", 60, 150, 4.0, 310.0, "Simone Luciani", "Board&Dice",
+                "Nucleum", 2023, 1, 4, 60, 150, 4.0, 310.0, "Simone Luciani", "Board&Dice",
                 listOf("Network Building", "Tile Placement"), listOf("Economic", "Industry"),
                 status = GameStatus.WISHLIST
             ),
             GameSpec(
-                "Sky Team", 2023, 2, 2, "2", 15, 20, 2.0, 120.0, "Luc Remond", "Le Scorpion Masque",
+                "Sky Team", 2023, 2, 2, 15, 20, 2.0, 120.0, "Luc Remond", "Le Scorpion Masque",
                 listOf("Dice Placement", "Team Play"), listOf("Aviation"),
                 scoring = ScoringMode.COOPERATIVE, status = GameStatus.PLAYED_NOT_OWNED
             )

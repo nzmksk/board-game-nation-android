@@ -45,8 +45,8 @@ object CsvSchema {
 
     val gameColumns = listOf(
         "id", "bgg_id", "title", "year_published", "min_players", "max_players",
-        "best_player_count", "min_playtime_minutes", "max_playtime_minutes", "weight",
-        "bgg_rating", "thumbnail_path", "date_added", "price",
+        "min_playtime_minutes", "max_playtime_minutes", "weight", "bgg_rating",
+        "thumbnail_path", "date_added", "price",
         "currency", "purchase_note", "status", "wishlist_priority",
         "lent_to", "lent_date", "is_expansion", "base_game_id", "scoring_mode",
         "high_score_wins", "notes", "created_at", "updated_at"

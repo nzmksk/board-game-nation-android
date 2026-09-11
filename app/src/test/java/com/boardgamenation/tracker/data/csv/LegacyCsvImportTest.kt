@@ -24,9 +24,10 @@ import org.robolectric.RobolectricTestRunner
  * Importing a CSV archive written by an older version of the app.
  *
  * This is the other half of the backup story, next to `MigrationTest`. A CSV export taken
- * before this change still carries `designers` and `publisher` columns on games and says
- * nothing at all about how a play ended, and somebody restoring one of those archives
- * should not silently lose a field from every game in their collection.
+ * before this change still carries `designers`, `publisher` and `best_player_count`
+ * columns on games and says nothing at all about how a play ended, and somebody restoring
+ * one of those archives should not silently lose a field from every game in their
+ * collection -- nor have the import refuse a file over a column that has since gone.
  *
  * The files here are written out by hand rather than produced by the exporter, because
  * the whole point is a shape the current exporter can no longer produce.
@@ -73,17 +74,17 @@ class LegacyCsvImportTest {
     fun tearDown() = db.close()
 
     /**
-     * A version 1 archive: `designers` and `publisher` present on games, no
-     * `sudden_death_possible`, and sessions without `end_condition` or `end_reason`. Tag
-     * ids are deliberately high, so a tag created during the import would collide if it
-     * were created before these rows were restored.
+     * A version 1 archive: `designers`, `publisher` and `best_player_count` present on
+     * games, no `sudden_death_possible`, and sessions without `end_condition` or
+     * `end_reason`. Tag ids are deliberately high, so a tag created during the import
+     * would collide if it were created before these rows were restored.
      */
     private fun legacyFiles(): Map<String, String> = mapOf(
         CsvSchema.GAMES to """
-            id,title,designers,publisher,date_added,status,scoring_mode,created_at,updated_at
-            1,7 Wonders Duel,"Antoine Bauza, Bruno Cathala",Repos Production,2026-01-01,OWNED,RANKED_SCORES,0,0
-            2,Cyclades,Bruno Cathala,"Matagot, SAS",2026-01-02,OWNED,RANKED_SCORES,0,0
-            3,Prototype,,,2026-01-03,OWNED,RANKED_SCORES,0,0
+            id,title,designers,publisher,best_player_count,date_added,status,scoring_mode,created_at,updated_at
+            1,7 Wonders Duel,"Antoine Bauza, Bruno Cathala",Repos Production,2,2026-01-01,OWNED,RANKED_SCORES,0,0
+            2,Cyclades,Bruno Cathala,"Matagot, SAS",3-4,2026-01-02,OWNED,RANKED_SCORES,0,0
+            3,Prototype,,,,2026-01-03,OWNED,RANKED_SCORES,0,0
         """.trimIndent(),
         CsvSchema.TAGS to """
             id,name,kind
@@ -194,6 +195,28 @@ class LegacyCsvImportTest {
         assertEquals(
             listOf("Matagot, SAS"),
             db.tagDao().observeForGame(2).first()
+                .filter { it.kind == TagKind.PUBLISHER }
+                .map { it.name }
+        )
+    }
+
+    /**
+     * The other two old columns are rescued into tags. This one is not: the field it fed
+     * is gone, and there is nowhere for the value to land. What matters is that the
+     * archive still imports -- the column is simply not read, the way any column the
+     * schema does not name is not read.
+     */
+    @Test
+    fun `the old best player count column is ignored rather than refused`() = runTest {
+        val result = importer.import(legacyFiles(), ImportMode.REPLACE)
+
+        assertTrue("unexpected errors: ${result.errors}", result.errors.isEmpty())
+        assertEquals("7 Wonders Duel", db.gameDao().getGame(1)!!.title)
+        // The columns either side of it in the file still landed on the right fields.
+        assertEquals("2026-01-02", db.gameDao().getGame(2)!!.dateAdded)
+        assertEquals(
+            listOf("Repos Production"),
+            db.tagDao().observeForGame(1).first()
                 .filter { it.kind == TagKind.PUBLISHER }
                 .map { it.name }
         )

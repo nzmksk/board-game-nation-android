@@ -220,9 +220,6 @@ class GameEditViewModel @Inject constructor(
                 yearPublished = current.yearPublished.toIntOrNull(),
                 minPlayers = current.minPlayers.toIntOrNull(),
                 maxPlayers = current.maxPlayers.toIntOrNull(),
-                // Nothing edits this any more, but the column is still the only copy of
-                // what people have already typed, so an edit writes it back untouched.
-                bestPlayerCount = existing?.bestPlayerCount,
                 minPlaytimeMinutes = current.minPlaytime.toIntOrNull(),
                 maxPlaytimeMinutes = current.maxPlaytime.toIntOrNull(),
                 weight = current.weight.toDoubleOrNull(),

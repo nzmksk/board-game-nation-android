@@ -779,6 +779,110 @@ object Migrations {
     }
 
     /**
+     * Drops the best-player-count column.
+     *
+     * The column held free text -- "3", "3–4", "best at 4", whatever somebody typed --
+     * written by two sources that never agreed: BGG's suggested-players poll on import,
+     * and the edit form on every save after it. Nothing filtered on it, nothing counted
+     * it, and nothing on screen said which of the two had written the value being shown.
+     *
+     * Unlike the designers and publisher columns, this one is not moved anywhere. Those
+     * held names worth keeping in a shape that could not hold them; this held an opinion
+     * about a game that the collection's own play history answers better and that no
+     * feature was left reading, so the values go with the column.
+     *
+     * minSdk 26 ships SQLite 3.18, which predates ALTER TABLE DROP COLUMN (3.35), so
+     * removing the column is the create/copy/drop/rename recipe again, AUTOINCREMENT
+     * counter carried over by hand exactly as in [MIGRATION_15_16].
+     */
+    private val MIGRATION_16_17 = Migration(16, 17) { db ->
+        db.execSQL(
+            "CREATE TEMP TABLE games_seq AS " +
+                "SELECT seq FROM sqlite_sequence WHERE name = 'games'"
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `games_new` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `bgg_id` INTEGER,
+                `title` TEXT NOT NULL,
+                `year_published` INTEGER,
+                `min_players` INTEGER,
+                `max_players` INTEGER,
+                `min_playtime_minutes` INTEGER,
+                `max_playtime_minutes` INTEGER,
+                `weight` REAL,
+                `bgg_rating` REAL,
+                `thumbnail_path` TEXT,
+                `date_added` TEXT NOT NULL,
+                `price` REAL,
+                `currency` TEXT NOT NULL DEFAULT 'MYR',
+                `purchase_note` TEXT,
+                `status` TEXT NOT NULL,
+                `wishlist_priority` INTEGER,
+                `lent_to` TEXT,
+                `lent_date` TEXT,
+                `is_expansion` INTEGER NOT NULL DEFAULT 0,
+                `base_game_id` INTEGER,
+                `scoring_mode` TEXT NOT NULL DEFAULT 'RANKED_SCORES',
+                `high_score_wins` INTEGER NOT NULL DEFAULT 1,
+                `notes` TEXT,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                FOREIGN KEY(`base_game_id`) REFERENCES `games`(`id`)
+                    ON UPDATE NO ACTION ON DELETE SET NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO `games_new` (
+                `id`, `bgg_id`, `title`, `year_published`, `min_players`, `max_players`,
+                `min_playtime_minutes`, `max_playtime_minutes`,
+                `weight`, `bgg_rating`, `thumbnail_path`, `date_added`, `price`,
+                `currency`, `purchase_note`, `status`, `wishlist_priority`,
+                `lent_to`, `lent_date`, `is_expansion`, `base_game_id`,
+                `scoring_mode`, `high_score_wins`, `notes`, `created_at`, `updated_at`
+            )
+            SELECT
+                `id`, `bgg_id`, `title`, `year_published`, `min_players`, `max_players`,
+                `min_playtime_minutes`, `max_playtime_minutes`,
+                `weight`, `bgg_rating`, `thumbnail_path`, `date_added`, `price`,
+                `currency`, `purchase_note`, `status`, `wishlist_priority`,
+                `lent_to`, `lent_date`, `is_expansion`, `base_game_id`,
+                `scoring_mode`, `high_score_wins`, `notes`, `created_at`, `updated_at`
+            FROM `games`
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE `games`")
+        db.execSQL("ALTER TABLE `games_new` RENAME TO `games`")
+
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_games_bgg_id` ON `games` (`bgg_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_games_title` ON `games` (`title`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_games_status` ON `games` (`status`)")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_games_base_game_id` ON `games` (`base_game_id`)"
+        )
+
+        db.execSQL(
+            """
+            UPDATE sqlite_sequence
+               SET seq = (SELECT seq FROM games_seq)
+             WHERE name = 'games' AND (SELECT seq FROM games_seq) > seq
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO sqlite_sequence (name, seq)
+            SELECT 'games', (SELECT seq FROM games_seq)
+             WHERE (SELECT seq FROM games_seq) IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'games')
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE games_seq")
+    }
+
+    /**
      * Ordered oldest to newest. Room composes them, so a device three versions behind
      * walks the chain rather than needing a 1-to-4 migration of its own.
      */
@@ -797,6 +901,7 @@ object Migrations {
         MIGRATION_12_13,
         MIGRATION_13_14,
         MIGRATION_14_15,
-        MIGRATION_15_16
+        MIGRATION_15_16,
+        MIGRATION_16_17
     )
 }
