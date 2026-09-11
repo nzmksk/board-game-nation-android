@@ -115,7 +115,7 @@ private fun CollectionTab(viewModel: StatsViewModel) {
                 )
                 StatTile(
                     label = stringResource(R.string.stats_collection_value),
-                    value = String.format(locale, "%,.0f", stats.value),
+                    value = String.format(locale, "%,.2f", stats.value),
                     supporting = stats.currency,
                     modifier = Modifier.weight(1f).fillMaxHeight()
                 )
