@@ -10,7 +10,6 @@ import com.boardgamenation.tracker.data.db.projection.HeadToHeadRow
 import com.boardgamenation.tracker.data.db.projection.LabelledValue
 import com.boardgamenation.tracker.data.db.projection.PersonalBestRow
 import com.boardgamenation.tracker.data.db.projection.PlayerStandingRow
-import com.boardgamenation.tracker.data.db.projection.SessionListItem
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -171,32 +170,23 @@ interface StatsDao {
     )
     fun observeMostPlayed(limit: Int): Flow<List<LabelledValue>>
 
+    /**
+     * The longest or shortest plays, as a bar per play.
+     *
+     * A title and a duration and nothing else: the card draws a bar chart, so the rest
+     * of what a play knows about itself -- who won, what it was stopped by, the
+     * objectives worked through -- would be fetched for every row and read by nobody.
+     */
     @Query(
         """
-        SELECT
-            s.id, s.game_id, g.title AS game_title, g.thumbnail_path,
-            s.played_on, s.duration_minutes, s.player_count, s.location,
-            s.is_cooperative, (s.coop_outcome = 'WIN') AS coop_won, s.mode,
-            s.is_incomplete, s.is_teaching_game, s.is_invalid, s.end_reason,
-            (
-                SELECT GROUP_CONCAT(p.name, ', ') FROM session_players sp
-                JOIN players p ON p.id = sp.player_id
-                WHERE sp.session_id = s.id AND sp.is_winner = 1
-            ) AS winner_names,
-            (
-                SELECT COUNT(*) FROM session_objectives o WHERE o.session_id = s.id
-            ) AS objective_count,
-            (
-                SELECT COALESCE(SUM(o.hints_used), 0) FROM session_objectives o
-                WHERE o.session_id = s.id
-            ) AS hints_used
+        SELECT g.title AS label, s.duration_minutes * 1.0 AS value
         FROM sessions s JOIN games g ON g.id = s.game_id
         WHERE s.is_draft = 0 AND s.is_invalid = 0 AND s.is_incomplete = 0
         ORDER BY CASE WHEN :longest = 1 THEN -s.duration_minutes ELSE s.duration_minutes END
         LIMIT :limit
         """
     )
-    fun observeExtremeSessions(longest: Boolean, limit: Int): Flow<List<SessionListItem>>
+    fun observeExtremeSessions(longest: Boolean, limit: Int): Flow<List<LabelledValue>>
 
     /**
      * Actual average duration against the midpoint of BGG's stated range. Only games

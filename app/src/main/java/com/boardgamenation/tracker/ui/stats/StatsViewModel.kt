@@ -7,7 +7,6 @@ import com.boardgamenation.tracker.data.db.projection.DurationVsExpectedRow
 import com.boardgamenation.tracker.data.db.projection.HeadToHeadRow
 import com.boardgamenation.tracker.data.db.projection.LabelledValue
 import com.boardgamenation.tracker.data.db.projection.PlayerStandingRow
-import com.boardgamenation.tracker.data.db.projection.SessionListItem
 import com.boardgamenation.tracker.data.prefs.SettingsRepository
 import com.boardgamenation.tracker.data.repository.StatsRepository
 import com.boardgamenation.tracker.domain.stats.StreakResult
@@ -39,8 +38,8 @@ data class PlayStats(
     val byMonth: List<LabelledValue> = emptyList(),
     val byDayOfWeek: List<LabelledValue> = emptyList(),
     val mostPlayed: List<LabelledValue> = emptyList(),
-    val longest: List<SessionListItem> = emptyList(),
-    val shortest: List<SessionListItem> = emptyList(),
+    val longest: List<LabelledValue> = emptyList(),
+    val shortest: List<LabelledValue> = emptyList(),
     val durationVsExpected: List<DurationVsExpectedRow> = emptyList(),
     val streak: StreakResult = StreakResult(0, 0),
     val hIndex: Int = 0
