@@ -284,7 +284,10 @@ class DevFixtures @Inject constructor(
                         },
                         isIncomplete = incomplete,
                         endCondition = endCondition,
-                        endReason = endings.random(random).takeIf { endedEarly },
+                        // Only drawn when the play actually ended on a rule: most games
+                        // in the catalogue have no such rule, and asking an empty list
+                        // for a random element throws.
+                        endReason = if (endedEarly) endings.random(random) else null,
                         isTeachingGame = teaching,
                         createdAt = now,
                         updatedAt = now
