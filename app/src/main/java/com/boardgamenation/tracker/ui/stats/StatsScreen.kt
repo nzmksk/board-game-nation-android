@@ -333,10 +333,10 @@ private fun ValueTab(viewModel: StatsViewModel) {
         }
 
         item { SectionHeader(stringResource(R.string.stats_most_economical)) }
-        item { ChartCard { CostPerPlayList(stats.bestValue) } }
+        item { ChartCard { MoneyList(stats.bestValue.map { it.toMoneyRow() }) } }
 
         item { SectionHeader(stringResource(R.string.stats_least_economical)) }
-        item { ChartCard { CostPerPlayList(stats.worstValue) } }
+        item { ChartCard { MoneyList(stats.worstValue.map { it.toMoneyRow() }) } }
 
         item { SectionHeader(stringResource(R.string.stats_spend_by_year)) }
         item { ChartCard { VerticalBarChart(stats.spendByYear.toPairs()) } }
@@ -353,8 +353,22 @@ private fun ValueTab(viewModel: StatsViewModel) {
     }
 }
 
+/**
+ * A game with an amount against it, and the plays that earned the amount where there
+ * are any. [playCount] is null when the count would say nothing: a game that has never
+ * been played has no per-play figure, only what it cost.
+ */
+private data class MoneyRow(val title: String, val amount: Double, val currency: String, val playCount: Int? = null)
+
+private fun CostPerPlayRow.toMoneyRow() = MoneyRow(title, costPerPlay, currency, playCount)
+
+/**
+ * Every section on this tab that puts an amount against a game renders through here.
+ * One renderer rather than one per section is the point: these sections are read down
+ * the column against each other, and two copies of the layout would drift apart.
+ */
 @Composable
-private fun CostPerPlayList(rows: List<CostPerPlayRow>) {
+private fun MoneyList(rows: List<MoneyRow>) {
     val locale = currentLocale()
     if (rows.isEmpty()) {
         Text(
@@ -374,22 +388,23 @@ private fun CostPerPlayList(rows: List<CostPerPlayRow>) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = pluralStringResource(
-                        R.plurals.stats_plays_value,
-                        row.playCount,
-                        row.playCount
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(0.dp))
+                if (row.playCount != null) {
+                    Text(
+                        text = pluralStringResource(
+                            R.plurals.stats_plays_value,
+                            row.playCount,
+                            row.playCount
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = String.format(
                         locale,
                         "%.2f %s",
-                        row.costPerPlay,
+                        row.amount,
                         row.currency
                     ),
                     style = MaterialTheme.typography.labelMedium
