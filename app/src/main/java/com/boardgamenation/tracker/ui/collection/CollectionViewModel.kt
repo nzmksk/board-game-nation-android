@@ -81,10 +81,7 @@ class CollectionViewModel @Inject constructor(
     }
 
     fun toggleStatus(status: GameStatus) {
-        val current = filter.value.statuses
-        filter.value = filter.value.copy(
-            statuses = if (status in current) current - status else current + status
-        )
+        filter.value = filter.value.withStatusToggled(status)
     }
 
     fun setPlayerCount(count: Int?) {

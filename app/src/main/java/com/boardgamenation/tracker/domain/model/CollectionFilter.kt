@@ -44,6 +44,29 @@ data class CollectionFilter(
     val sort: CollectionSort = CollectionSort.TITLE,
     val ascending: Boolean = true
 ) {
+    /**
+     * Lights a status chip or puts it out, keeping the set to one question at a time.
+     *
+     * OWNED, WISHLIST, SOLD and LENT_OUT each say where a copy of the game is: on the
+     * shelf, not bought yet, gone, or out on loan. [GameStatus.PLAYED_NOT_OWNED] says
+     * there is no copy and never was, so it is not another place to look -- and a set
+     * holding it alongside any of the others is an OR that hands back the very games the
+     * chip just tapped excludes. Asking for owned games and being shown games marked as
+     * never owned reads as the filter having failed, not as a wider search.
+     *
+     * So the two sides put each other out: lighting a shelf status clears
+     * [GameStatus.PLAYED_NOT_OWNED], and lighting [GameStatus.PLAYED_NOT_OWNED] clears
+     * every shelf status. Only lighting a chip does this; turning one off is left alone,
+     * because that never widens the list.
+     */
+    fun withStatusToggled(status: GameStatus): CollectionFilter = copy(
+        statuses = when {
+            status in statuses -> statuses - status
+            status == GameStatus.PLAYED_NOT_OWNED -> setOf(status)
+            else -> statuses - GameStatus.PLAYED_NOT_OWNED + status
+        }
+    )
+
     val isActive: Boolean
         get() = search.isNotBlank() || statuses.isNotEmpty() || playerCount != null ||
             playtime != null || tagIds.isNotEmpty() || rated != null ||
