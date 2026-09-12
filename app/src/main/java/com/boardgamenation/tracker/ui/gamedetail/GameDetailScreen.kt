@@ -198,7 +198,7 @@ fun GameDetailScreen(
             // For an expansion, the first thing worth knowing is what it goes with. It
             // leads the Expansions section below, which is the same relationship read from
             // the other end, so the two sit together.
-            if (game.isExpansion || state.baseGames.isNotEmpty()) {
+            if (state.showsBaseGames) {
                 item { SectionHeader(stringResource(R.string.game_detail_expansion_for)) }
                 if (state.baseGames.isEmpty()) {
                     item { EmptySectionNote(stringResource(R.string.game_detail_no_base_games)) }
@@ -209,12 +209,14 @@ fun GameDetailScreen(
                 }
             }
 
-            item { SectionHeader(stringResource(R.string.game_detail_expansions)) }
-            if (state.expansions.isEmpty()) {
-                item { EmptySectionNote(stringResource(R.string.game_detail_no_expansions)) }
-            } else {
-                items(state.expansions.size) { index ->
-                    GameLinkRow(game = state.expansions[index], onClick = onOpenGame)
+            if (state.showsExpansions) {
+                item { SectionHeader(stringResource(R.string.game_detail_expansions)) }
+                if (state.expansions.isEmpty()) {
+                    item { EmptySectionNote(stringResource(R.string.game_detail_no_expansions)) }
+                } else {
+                    items(state.expansions.size) { index ->
+                        GameLinkRow(game = state.expansions[index], onClick = onOpenGame)
+                    }
                 }
             }
 
