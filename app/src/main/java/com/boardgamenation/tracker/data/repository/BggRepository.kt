@@ -245,12 +245,21 @@ class BggRepository @Inject constructor(
         imported
     }
 
+    /**
+     * Links every base game BGG names, not the first one that happens to be in the
+     * collection. Ticket to Ride: France lists both Ticket to Ride and Ticket to Ride:
+     * Europe, and picking one of them was a limit of the old single column rather than
+     * anything BGG said.
+     *
+     * Bases that are not in the collection are skipped rather than created. Importing one
+     * expansion should not quietly add the three big boxes it happens to fit.
+     */
     private suspend fun linkExpansions(things: List<BggThing>) {
         things.filter { it.isExpansion && it.expandsBggIds.isNotEmpty() }.forEach { thing ->
             val expansion = gameDao.getGameByBggId(thing.bggId) ?: return@forEach
-            val base = thing.expandsBggIds.firstNotNullOfOrNull { gameDao.getGameByBggId(it) }
-                ?: return@forEach
-            gameRepository.updateGame(expansion.copy(baseGameId = base.id))
+            val bases = thing.expandsBggIds.mapNotNull { gameDao.getGameByBggId(it) }
+            if (bases.isEmpty()) return@forEach
+            gameDao.replaceBaseGames(expansion.id, bases.map { it.id })
         }
     }
 

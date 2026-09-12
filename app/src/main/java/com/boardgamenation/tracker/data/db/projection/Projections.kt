@@ -338,6 +338,7 @@ data class NamedTotal(
 data class TableCountSummary(
     val games: Int,
     val gameCosts: Int,
+    val gameExpansions: Int,
     val tags: Int,
     val gameTags: Int,
     val players: Int,
@@ -353,7 +354,7 @@ data class TableCountSummary(
     val achievementUnlocks: Int
 ) {
     val total: Int
-        get() = games + gameCosts + tags + gameTags + players + sessions + sessionPlayers +
-            sessionExpansions + sessionModes + sessionObjectives + rubrics + rubricCriteria +
-            gameRatings + gameRatingScores + achievementUnlocks
+        get() = games + gameCosts + gameExpansions + tags + gameTags + players + sessions +
+            sessionPlayers + sessionExpansions + sessionModes + sessionObjectives + rubrics +
+            rubricCriteria + gameRatings + gameRatingScores + achievementUnlocks
 }

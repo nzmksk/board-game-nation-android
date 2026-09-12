@@ -74,7 +74,8 @@ class MigrationChainTest {
         // Every table the CSV export names must actually exist, or a backup would come
         // back missing a table nobody noticed was gone.
         setOf(
-            "games", "tags", "game_tags", "players", "sessions", "session_players",
+            "games", "game_expansions", "tags", "game_tags", "players", "sessions",
+            "session_players",
             "session_expansions", "rubrics", "rubric_criteria", "game_ratings",
             "game_rating_scores", "achievements", "achievement_unlocks",
             "timer_presets", "timer_state", "timer_seats", "bgg_thing_cache"

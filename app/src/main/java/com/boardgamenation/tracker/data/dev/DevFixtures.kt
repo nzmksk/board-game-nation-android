@@ -154,7 +154,7 @@ class DevFixtures @Inject constructor(
         listOf("Catan" to "Catan: Seafarers", "Wingspan" to "Wingspan: Oceania").forEach { (base, expansion) ->
             val baseGame = gameDao.getGameByTitle(base) ?: return@forEach
             if (gameDao.getGameByTitle(expansion) != null) return@forEach
-            ids += gameDao.insert(
+            val expansionId = gameDao.insert(
                 GameEntity(
                     title = expansion,
                     minPlayers = baseGame.minPlayers,
@@ -164,11 +164,12 @@ class DevFixtures @Inject constructor(
                     dateAdded = DateUtils.toIso(today.minusDays(200)),
                     price = 95.0,
                     isExpansion = true,
-                    baseGameId = baseGame.id,
                     createdAt = now,
                     updatedAt = now
                 )
             )
+            ids += expansionId
+            gameDao.replaceBaseGames(expansionId, listOf(baseGame.id))
         }
         return ids
     }

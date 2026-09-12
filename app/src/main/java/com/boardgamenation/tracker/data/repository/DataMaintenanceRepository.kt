@@ -68,6 +68,7 @@ class DataMaintenanceRepository @Inject constructor(
         TableCountSummary(
             games = gameDao.count(),
             gameCosts = gameDao.countCosts(),
+            gameExpansions = gameDao.countExpansionLinks(),
             tags = tagDao.count(),
             gameTags = tagDao.countLinks(),
             players = playerDao.count(),

@@ -14,6 +14,7 @@ import com.boardgamenation.tracker.data.db.dao.TagDao
 import com.boardgamenation.tracker.data.db.entity.AchievementUnlockEntity
 import com.boardgamenation.tracker.data.db.entity.GameCostEntity
 import com.boardgamenation.tracker.data.db.entity.GameEntity
+import com.boardgamenation.tracker.data.db.entity.GameExpansionCrossRef
 import com.boardgamenation.tracker.data.db.entity.GameRatingEntity
 import com.boardgamenation.tracker.data.db.entity.GameRatingScoreEntity
 import com.boardgamenation.tracker.data.db.entity.GameTagCrossRef
@@ -184,6 +185,8 @@ class CsvImporter @Inject constructor(
 
             val gameIds = importGames(files[CsvSchema.GAMES], mode, errors, written)
             importGameCosts(files[CsvSchema.GAME_COSTS], mode, gameIds, errors, written)
+            importGameExpansions(files[CsvSchema.GAME_EXPANSIONS], gameIds, errors, written)
+            importLegacyBaseGames(files[CsvSchema.GAMES], gameIds, errors)
             val tagIds = importTags(files[CsvSchema.TAGS], mode, errors, written)
             importGameTags(files[CsvSchema.GAME_TAGS], gameIds, tagIds, errors, written)
             importLegacyDesigners(files[CsvSchema.GAMES], gameIds, errors)
@@ -239,10 +242,6 @@ class CsvImporter @Inject constructor(
                 errors,
                 written
             )
-
-            // Second pass: an expansion can name a base game that had not been inserted
-            // yet when its own row was read.
-            relinkBaseGames(files[CsvSchema.GAMES], gameIds, errors)
         }
 
         ImportResult(written, errors)
@@ -285,8 +284,6 @@ class CsvImporter @Inject constructor(
                     lentTo = row.string("lent_to"),
                     lentDate = row.string("lent_date"),
                     isExpansion = row.boolean("is_expansion"),
-                    // Resolved in the second pass, once every game exists.
-                    baseGameId = null,
                     scoringMode = ScoringMode.fromStorage(row.string("scoring_mode")),
                     highScoreWins = row.boolean("high_score_wins", default = true),
                     notes = row.string("notes"),
@@ -296,7 +293,7 @@ class CsvImporter @Inject constructor(
 
                 val existing = if (mode == ImportMode.MERGE) findGame(row) else null
                 val newId = if (existing != null) {
-                    gameDao.update(entity.copy(id = existing.id, baseGameId = existing.baseGameId))
+                    gameDao.update(entity.copy(id = existing.id))
                     existing.id
                 } else {
                     gameDao.insert(entity)
@@ -319,13 +316,61 @@ class CsvImporter @Inject constructor(
         return row.string("title")?.let { gameDao.getGameByTitle(it) }
     }
 
-    private suspend fun relinkBaseGames(text: String?, gameIds: Map<Long, Long>, errors: MutableList<CsvError>) {
+    /**
+     * What each expansion expands. Read after `games`, because both ends of a link are
+     * games and either of them can be further down the file than the link.
+     *
+     * A merge appends rather than replacing the set. Both files describe the same
+     * collection from different devices, and an expansion that was linked to a base game
+     * here should not lose that because the archive being merged in only knew about
+     * another one.
+     */
+    private suspend fun importGameExpansions(
+        text: String?,
+        gameIds: Map<Long, Long>,
+        errors: MutableList<CsvError>,
+        written: MutableMap<String, Int>
+    ) {
         val table = text?.let { CsvParser.parse(it) } ?: return
+        val links = mutableListOf<GameExpansionCrossRef>()
         table.rows.forEach { row ->
             try {
-                val incomingBase = row.long("base_game_id") ?: return@forEach
-                val incomingId = row.long("id") ?: return@forEach
-                val localId = gameIds[incomingId] ?: return@forEach
+                val expansionId = gameIds[row.long("expansion_id")]
+                val baseGameId = gameIds[row.long("base_game_id")]
+                if (expansionId == null || baseGameId == null) {
+                    errors += CsvError(
+                        row.lineNumber,
+                        "game_expansions: unknown game, link skipped"
+                    )
+                    return@forEach
+                }
+                links += GameExpansionCrossRef(expansionId = expansionId, baseGameId = baseGameId)
+            } catch (e: Exception) {
+                errors += CsvError(row.lineNumber, "game_expansions: ${e.message}")
+            }
+        }
+        if (links.isNotEmpty()) gameDao.insertExpansionLinks(links)
+        written[CsvSchema.GAME_EXPANSIONS] = links.size
+    }
+
+    /**
+     * Rescues expansion links from an export written before they became their own file.
+     *
+     * Games used to carry a single `base_game_id` column, which is the same answer with
+     * room for only one of them. An archive from that era still has it, and dropping it
+     * silently would unlink every expansion in somebody's backup, so the value becomes the
+     * one-element set it always meant. A current export has no such column and this does
+     * nothing.
+     */
+    private suspend fun importLegacyBaseGames(text: String?, gameIds: Map<Long, Long>, errors: MutableList<CsvError>) {
+        val table = text?.let { CsvParser.parse(it) } ?: return
+        if (LEGACY_BASE_GAME_COLUMN !in table.headers) return
+
+        val links = mutableListOf<GameExpansionCrossRef>()
+        table.rows.forEach { row ->
+            try {
+                val incomingBase = row.long(LEGACY_BASE_GAME_COLUMN) ?: return@forEach
+                val localId = gameIds[row.long("id")] ?: return@forEach
                 val localBase = gameIds[incomingBase]
                 if (localBase == null) {
                     errors += CsvError(
@@ -334,11 +379,12 @@ class CsvImporter @Inject constructor(
                     )
                     return@forEach
                 }
-                gameDao.getGame(localId)?.let { gameDao.update(it.copy(baseGameId = localBase)) }
+                links += GameExpansionCrossRef(expansionId = localId, baseGameId = localBase)
             } catch (e: Exception) {
                 errors += CsvError(row.lineNumber, "games: ${e.message}")
             }
         }
+        if (links.isNotEmpty()) gameDao.insertExpansionLinks(links)
     }
 
     /**
@@ -1047,5 +1093,6 @@ class CsvImporter @Inject constructor(
         /** Only ever read, never written: the columns no longer exist. */
         const val LEGACY_DESIGNERS_COLUMN = "designers"
         const val LEGACY_PUBLISHER_COLUMN = "publisher"
+        const val LEGACY_BASE_GAME_COLUMN = "base_game_id"
     }
 }
