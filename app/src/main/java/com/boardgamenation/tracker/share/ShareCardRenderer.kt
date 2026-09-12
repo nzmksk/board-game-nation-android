@@ -109,13 +109,14 @@ class ShareCardRenderer @Inject constructor(@param:ApplicationContext private va
         )
         y += 28f
 
-        val figures = listOf(
+        val figures = listOfNotNull(
             DurationFormat.minutes(card.durationMinutes),
             context.resources.getQuantityString(
                 R.plurals.unit_players,
                 card.playerCount,
                 card.playerCount
-            )
+            ),
+            objectiveTally(card)
         ).joinToString(SEPARATOR)
         val figuresPaint = text(size = 42f, color = MUTED)
         canvas.drawText(figures, MARGIN, y + figuresPaint.textSize, figuresPaint)
@@ -156,6 +157,34 @@ class ShareCardRenderer @Inject constructor(@param:ApplicationContext private va
         }
 
         return y + 56f
+    }
+
+    /**
+     * "4 objectives · no hints", which on a good night is the boast the card is being
+     * sent for. It joins the duration and the player count because it is the same kind
+     * of fact: how big the evening was, before anything about how it went.
+     *
+     * The hint count is spelled out at zero, the way the session list spells it out,
+     * because zero is the interesting answer. Left off entirely on a play with no case,
+     * which is every play but an investigative one.
+     */
+    private fun objectiveTally(card: ShareCard): String? {
+        if (card.objectives.isEmpty()) return null
+        val objectives = context.resources.getQuantityString(
+            R.plurals.session_objectives,
+            card.objectives.size,
+            card.objectives.size
+        )
+        val hints = if (card.totalHints == 0) {
+            context.getString(R.string.session_hints_none)
+        } else {
+            context.resources.getQuantityString(
+                R.plurals.session_hints,
+                card.totalHints,
+                card.totalHints
+            )
+        }
+        return "$objectives$SEPARATOR$hints"
     }
 
     /**

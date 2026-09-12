@@ -499,4 +499,34 @@ class ShareCardRendererTest {
 
         assertEquals(1080, bitmap.width)
     }
+
+    // --- objectives -----------------------------------------------------------------
+
+    /**
+     * The tally sits on the figures line, which is above the title's baseline neighbours
+     * and well above the standings, so a card carrying it differs from one that does not
+     * from that line downward.
+     */
+    @Test
+    fun `the objective tally is drawn on a play that has a case`() {
+        val without = renderer.render(card(standings = listOf(standing("Aina"))))
+        val with = renderer.render(
+            card(
+                standings = listOf(standing("Aina")),
+                objectives = listOf(ShareObjective("The locked safe", hintsUsed = 0, attempts = 1))
+            )
+        )
+
+        assertFalse("the tally should change the card", without.sameAs(with))
+    }
+
+    @Test
+    fun `a play with no case is drawn exactly as it was before`() {
+        val one = renderer.render(card(standings = listOf(standing("Aina", rank = 1, isWinner = true))))
+        val other = renderer.render(
+            card(standings = listOf(standing("Aina", rank = 1, isWinner = true)), objectives = emptyList())
+        )
+
+        assertTrue(one.sameAs(other))
+    }
 }
