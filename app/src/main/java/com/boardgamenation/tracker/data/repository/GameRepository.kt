@@ -68,6 +68,16 @@ class GameRepository @Inject constructor(
 
     fun observeExpansions(baseGameId: Long): Flow<List<GameEntity>> = gameDao.observeExpansionsOf(baseGameId)
 
+    /** What this expansion expands. More than one game, for an expansion that fits more. */
+    fun observeBaseGamesOf(expansionId: Long): Flow<List<GameEntity>> = gameDao.observeBaseGamesOf(expansionId)
+
+    suspend fun getBaseGamesOf(expansionId: Long): List<GameEntity> = gameDao.getBaseGamesOf(expansionId)
+
+    /** Replaces the set of games an expansion expands with the one the form is holding. */
+    suspend fun replaceBaseGames(expansionId: Long, baseGameIds: List<Long>) {
+        gameDao.replaceBaseGames(expansionId, baseGameIds)
+    }
+
     fun observeBaseGames(): Flow<List<GameEntity>> = gameDao.observeBaseGames()
 
     fun observeLentOut(): Flow<List<GameEntity>> = gameDao.observeLentOut()
@@ -123,8 +133,9 @@ class GameRepository @Inject constructor(
         if (!confirmed && (sessions > 0 || expansions > 0)) {
             return DeleteGameOutcome.NeedsConfirmation(sessions, expansions)
         }
-        // Sessions cascade; expansions are detached rather than destroyed, since an
-        // expansion can outlive the base game in a collection.
+        // Sessions cascade, and so do the expansion links -- which detaches the
+        // expansions rather than destroying them, since an expansion can outlive the
+        // base game in a collection.
         gameDao.getGame(id)?.let { gameDao.delete(it) }
         tagDao.pruneOrphans()
         return DeleteGameOutcome.Deleted

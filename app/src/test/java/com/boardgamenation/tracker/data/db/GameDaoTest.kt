@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.boardgamenation.tracker.data.db.dao.GameDao
 import com.boardgamenation.tracker.data.db.dao.SessionDao
 import com.boardgamenation.tracker.data.db.dao.TagDao
+import com.boardgamenation.tracker.data.db.entity.GameEntity
 import com.boardgamenation.tracker.data.db.entity.GameTagCrossRef
 import com.boardgamenation.tracker.data.db.entity.TagEntity
 import com.boardgamenation.tracker.data.db.query.GameQueryBuilder
@@ -216,14 +217,91 @@ class GameDaoTest {
     @Test
     fun `deleting a base game detaches its expansions`() = runTest {
         val baseId = gameDao.insert(DatabaseTestFixture.game("Catan"))
-        val expansionId = gameDao.insert(
-            DatabaseTestFixture.game("Seafarers", isExpansion = true, baseGameId = baseId)
-        )
+        val expansionId = gameDao.insert(DatabaseTestFixture.game("Seafarers", isExpansion = true))
+        gameDao.replaceBaseGames(expansionId, listOf(baseId))
 
         gameDao.delete(gameDao.getGame(baseId)!!)
         val expansion = gameDao.getGame(expansionId)
         assertNotNull(expansion)
-        assertNull(expansion?.baseGameId)
+        assertEquals(emptyList<GameEntity>(), gameDao.getBaseGamesOf(expansionId))
+    }
+
+    /**
+     * The case a single `base_game_id` column could not hold: Ticket to Ride: France goes
+     * on top of two different games, and both of them list it as an expansion.
+     */
+    @Test
+    fun `an expansion can expand more than one game`() = runTest {
+        val original = gameDao.insert(DatabaseTestFixture.game("Ticket to Ride"))
+        val europe = gameDao.insert(DatabaseTestFixture.game("Ticket to Ride: Europe"))
+        val france = gameDao.insert(
+            DatabaseTestFixture.game("Ticket to Ride: France", isExpansion = true)
+        )
+
+        gameDao.replaceBaseGames(france, listOf(original, europe))
+
+        assertEquals(
+            listOf("Ticket to Ride", "Ticket to Ride: Europe"),
+            gameDao.getBaseGamesOf(france).map { it.title }
+        )
+        assertEquals(
+            listOf("Ticket to Ride: France"),
+            gameDao.getExpansionsOf(original).map { it.title }
+        )
+        assertEquals(
+            listOf("Ticket to Ride: France"),
+            gameDao.getExpansionsOf(europe).map { it.title }
+        )
+    }
+
+    /**
+     * An expansion is an ordinary game at both ends of the link, so a chain needs nothing
+     * the first link did not already have. Legends of the Sea Robbers expands the Catan
+     * base box and Catan: Seafarers, which is itself an expansion.
+     */
+    @Test
+    fun `an expansion can expand another expansion`() = runTest {
+        val catan = gameDao.insert(DatabaseTestFixture.game("Catan"))
+        val seafarers = gameDao.insert(DatabaseTestFixture.game("Seafarers", isExpansion = true))
+        val legends = gameDao.insert(DatabaseTestFixture.game("Legends", isExpansion = true))
+        gameDao.replaceBaseGames(seafarers, listOf(catan))
+        gameDao.replaceBaseGames(legends, listOf(catan, seafarers))
+
+        // Read one step at a time: Catan lists both, Seafarers lists only what sits on it.
+        assertEquals(
+            listOf("Legends", "Seafarers"),
+            gameDao.getExpansionsOf(catan).map { it.title }
+        )
+        assertEquals(listOf("Legends"), gameDao.getExpansionsOf(seafarers).map { it.title })
+        assertEquals(listOf("Catan", "Seafarers"), gameDao.getBaseGamesOf(legends).map { it.title })
+    }
+
+    @Test
+    fun `replacing base games swaps the whole set`() = runTest {
+        val original = gameDao.insert(DatabaseTestFixture.game("Ticket to Ride"))
+        val europe = gameDao.insert(DatabaseTestFixture.game("Ticket to Ride: Europe"))
+        val france = gameDao.insert(
+            DatabaseTestFixture.game("Ticket to Ride: France", isExpansion = true)
+        )
+
+        gameDao.replaceBaseGames(france, listOf(original, europe))
+        gameDao.replaceBaseGames(france, listOf(europe))
+
+        assertEquals(
+            listOf("Ticket to Ride: Europe"),
+            gameDao.getBaseGamesOf(france).map { it.title }
+        )
+        assertEquals(emptyList<GameEntity>(), gameDao.getExpansionsOf(original))
+    }
+
+    /** A game that expands itself would appear in both halves of its own details. */
+    @Test
+    fun `a game cannot expand itself`() = runTest {
+        val catan = gameDao.insert(DatabaseTestFixture.game("Catan", isExpansion = true))
+
+        gameDao.replaceBaseGames(catan, listOf(catan))
+
+        assertEquals(emptyList<GameEntity>(), gameDao.getBaseGamesOf(catan))
     }
 
     @Test
@@ -473,9 +551,10 @@ class GameDaoTest {
     @Test
     fun `an expansion is not offered as the subject of a play`() = runTest {
         val baseId = gameDao.insert(DatabaseTestFixture.game("Ark Nova"))
-        gameDao.insert(
-            DatabaseTestFixture.game("Marine Worlds", isExpansion = true, baseGameId = baseId)
+        val expansionId = gameDao.insert(
+            DatabaseTestFixture.game("Marine Worlds", isExpansion = true)
         )
+        gameDao.replaceBaseGames(expansionId, listOf(baseId))
 
         assertEquals(listOf("Ark Nova"), gameDao.observeBaseGames().first().map { it.title })
     }

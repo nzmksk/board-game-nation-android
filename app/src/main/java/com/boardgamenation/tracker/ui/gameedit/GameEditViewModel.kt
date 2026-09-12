@@ -53,7 +53,12 @@ data class GameEditState(
     val status: GameStatus = GameStatus.OWNED,
     val wishlistPriority: Int? = null,
     val isExpansion: Boolean = false,
-    val baseGameId: Long? = null,
+
+    /**
+     * Every game this expansion expands, not just one. Ticket to Ride: France goes on top
+     * of Ticket to Ride and of Ticket to Ride: Europe, and a single answer had to drop one.
+     */
+    val baseGameIds: List<Long> = emptyList(),
     val scoringMode: ScoringMode = ScoringMode.RANKED_SCORES,
     val highScoreWins: Boolean = true,
     val notes: String = "",
@@ -98,19 +103,20 @@ class GameEditViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val defaultCurrency = settingsRepository.settings.first().defaultCurrency
-            val bases = gameRepository.observeBaseGames().first()
+            val options = gameRepository.observeBaseGames().first()
 
             if (gameId == 0L) {
                 _state.value = GameEditState(
                     dateAdded = DateUtils.toIso(clock.today()),
                     currency = defaultCurrency,
-                    baseGameOptions = bases,
+                    baseGameOptions = options,
                     isNew = true
                 )
             } else {
                 val game = gameRepository.getGame(gameId)
                 val tags = gameRepository.observeTags(gameId).first()
                 val costs = gameRepository.getCosts(gameId)
+                val bases = gameRepository.getBaseGamesOf(gameId)
                 if (game != null) {
                     _state.value = GameEditState(
                         id = game.id,
@@ -130,7 +136,7 @@ class GameEditViewModel @Inject constructor(
                         status = game.status,
                         wishlistPriority = game.wishlistPriority,
                         isExpansion = game.isExpansion,
-                        baseGameId = game.baseGameId,
+                        baseGameIds = bases.map { it.id },
                         scoringMode = game.scoringMode,
                         highScoreWins = game.highScoreWins,
                         notes = game.notes.orEmpty(),
@@ -139,7 +145,7 @@ class GameEditViewModel @Inject constructor(
                         designers = tags.filter { it.kind == TagKind.DESIGNER }.map { it.name },
                         publishers = tags.filter { it.kind == TagKind.PUBLISHER }.map { it.name },
                         // A game cannot be its own base game.
-                        baseGameOptions = bases.filter { it.id != game.id },
+                        baseGameOptions = options.filter { it.id != game.id },
                         isNew = false
                     )
                 }
@@ -149,6 +155,18 @@ class GameEditViewModel @Inject constructor(
 
     fun update(block: (GameEditState) -> GameEditState) {
         _state.value = block(_state.value)
+    }
+
+    /**
+     * One base game on or off, since the picker is a set of checkboxes rather than a
+     * single choice. The order is the order they were ticked in; the list is read back
+     * sorted by title, so nothing depends on it.
+     */
+    fun toggleBaseGame(id: Long) {
+        val current = _state.value.baseGameIds
+        _state.value = _state.value.copy(
+            baseGameIds = if (id in current) current - id else current + id
+        )
     }
 
     /**
@@ -233,7 +251,6 @@ class GameEditViewModel @Inject constructor(
                 wishlistPriority = current.wishlistPriority
                     .takeIf { current.status == GameStatus.WISHLIST },
                 isExpansion = current.isExpansion,
-                baseGameId = current.baseGameId.takeIf { current.isExpansion },
                 scoringMode = current.scoringMode,
                 highScoreWins = current.highScoreWins,
                 notes = current.notes.trim().ifBlank { null },
@@ -254,6 +271,12 @@ class GameEditViewModel @Inject constructor(
                 current.id
             }
             gameRepository.replaceCosts(id, current.costEntities())
+            // Cleared rather than left alone when the toggle is off, so a game demoted
+            // back to a base game does not keep pointing at what it used to expand.
+            gameRepository.replaceBaseGames(
+                id,
+                if (current.isExpansion) current.baseGameIds else emptyList()
+            )
             _saved.value = id
         }
     }

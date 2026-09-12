@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -320,10 +322,7 @@ fun GameEditScreen(
 
             if (state.isExpansion) {
                 item {
-                    BaseGamePicker(
-                        state = state,
-                        onSelect = { id -> viewModel.update { it.copy(baseGameId = id) } }
-                    )
+                    BaseGamePicker(state = state, onToggle = viewModel::toggleBaseGame)
                 }
             }
 
@@ -443,30 +442,38 @@ private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
     }
 }
 
+/**
+ * The games this expansion expands, as a set rather than a choice.
+ *
+ * The menu stays open as boxes are ticked, because picking two is the case it exists for
+ * and reopening it for each would be the old single-answer form with extra steps. What is
+ * chosen is summarised on the button, so the answer is readable with the menu shut.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BaseGamePicker(state: GameEditState, onSelect: (Long?) -> Unit) {
+private fun BaseGamePicker(state: GameEditState, onToggle: (Long) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    val selected = state.baseGameOptions.firstOrNull { it.id == state.baseGameId }
+    val selected = state.baseGameOptions.filter { it.id in state.baseGameIds }
     Box {
         OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
-            Text(selected?.title ?: stringResource(R.string.game_edit_base_game_none))
+            Text(
+                text = selected.takeIf { it.isNotEmpty() }?.joinToString { it.title }
+                    ?: stringResource(R.string.game_edit_base_game_none),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.game_edit_base_game_none)) },
-                onClick = {
-                    onSelect(null)
-                    open = false
-                }
-            )
             state.baseGameOptions.forEach { game ->
                 DropdownMenuItem(
                     text = { Text(game.title) },
-                    onClick = {
-                        onSelect(game.id)
-                        open = false
-                    }
+                    leadingIcon = {
+                        Checkbox(
+                            checked = game.id in state.baseGameIds,
+                            onCheckedChange = { onToggle(game.id) }
+                        )
+                    },
+                    onClick = { onToggle(game.id) }
                 )
             }
         }

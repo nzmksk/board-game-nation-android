@@ -45,7 +45,6 @@ object DatabaseTestFixture {
         maxPlaytime: Int? = 90,
         weight: Double? = 2.5,
         isExpansion: Boolean = false,
-        baseGameId: Long? = null,
         dateAdded: String = "2026-01-01"
     ) = GameEntity(
         id = id,
@@ -60,7 +59,6 @@ object DatabaseTestFixture {
         price = price,
         status = status,
         isExpansion = isExpansion,
-        baseGameId = baseGameId,
         createdAt = NOW,
         updatedAt = NOW
     )
