@@ -22,9 +22,6 @@ data class BggThing(
     val imageUrl: String? = null,
     val isExpansion: Boolean = false,
 
-    /** Derived from the suggested-players poll, e.g. "3–4". */
-    val bestPlayerCount: String? = null,
-
     /** For expansions: the things this expands. */
     val expandsBggIds: List<Long> = emptyList()
 )

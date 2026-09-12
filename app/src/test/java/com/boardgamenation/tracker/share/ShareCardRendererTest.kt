@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import com.boardgamenation.tracker.domain.share.ShareCard
+import com.boardgamenation.tracker.domain.share.ShareObjective
 import com.boardgamenation.tracker.domain.share.ShareResult
 import com.boardgamenation.tracker.domain.share.ShareStanding
 import java.time.LocalDate
@@ -60,6 +61,7 @@ class ShareCardRendererTest {
         standings: List<ShareStanding>,
         winningTeam: String? = null,
         mode: String? = null,
+        objectives: List<ShareObjective> = emptyList(),
         endReason: String? = null,
         turnOrder: List<String> = emptyList(),
         seating: List<String> = emptyList(),
@@ -73,6 +75,7 @@ class ShareCardRendererTest {
         standings = standings,
         winningTeam = winningTeam,
         mode = mode,
+        objectives = objectives,
         endReason = endReason,
         turnOrder = turnOrder,
         seating = seating,
@@ -495,5 +498,142 @@ class ShareCardRendererTest {
         )
 
         assertEquals(1080, bitmap.width)
+    }
+
+    // --- objectives -----------------------------------------------------------------
+
+    /**
+     * The tally sits on the figures line, which is above the title's baseline neighbours
+     * and well above the standings, so a card carrying it differs from one that does not
+     * from that line downward.
+     */
+    @Test
+    fun `the objective tally is drawn on a play that has a case`() {
+        val without = renderer.render(card(standings = listOf(standing("Aina"))))
+        val with = renderer.render(
+            card(
+                standings = listOf(standing("Aina")),
+                objectives = listOf(ShareObjective("The locked safe", hintsUsed = 0, attempts = 1))
+            )
+        )
+
+        assertFalse("the tally should change the card", without.sameAs(with))
+    }
+
+    @Test
+    fun `a play with no case is drawn exactly as it was before`() {
+        val one = renderer.render(card(standings = listOf(standing("Aina", rank = 1, isWinner = true))))
+        val other = renderer.render(
+            card(standings = listOf(standing("Aina", rank = 1, isWinner = true)), objectives = emptyList())
+        )
+
+        assertTrue(one.sameAs(other))
+    }
+
+    @Test
+    fun `the objective list is drawn above the arrangement`() {
+        val objectives = listOf(
+            ShareObjective("The locked safe", hintsUsed = 0, attempts = 1),
+            ShareObjective("The cellar", hintsUsed = 2, attempts = 3)
+        )
+        val bitmap = renderer.render(
+            card(
+                result = ShareResult.COOP_WIN,
+                standings = listOf(standing("Aina", isWinner = true), standing("Ben", isWinner = true)),
+                objectives = objectives,
+                turnOrder = listOf("Aina", "Ben")
+            )
+        )
+
+        assertEquals(1080, bitmap.width)
+        assertTrue("the card should be drawn on", distinctColours(bitmap) > 4)
+    }
+
+    /**
+     * A case longer than the card counts the rest off rather than dropping them in
+     * silence, which is what the standings do when a table is too big.
+     */
+    @Test
+    fun `a case with more puzzles than fit still renders`() {
+        val bitmap = renderer.render(
+            card(
+                result = ShareResult.COOP_WIN,
+                standings = listOf(standing("Aina", isWinner = true)),
+                objectives = (1..12).map { ShareObjective("Chapter $it", hintsUsed = it % 3, attempts = 1) }
+            )
+        )
+
+        assertEquals(1920, bitmap.height)
+        assertTrue(distinctColours(bitmap) > 4)
+    }
+
+    @Test
+    fun `an objective named at length does not stop the card rendering`() {
+        val bitmap = renderer.render(
+            card(
+                result = ShareResult.COOP_WIN,
+                standings = listOf(standing("Aina", isWinner = true)),
+                objectives = listOf(
+                    ShareObjective("The " + "very ".repeat(40) + "locked safe", hintsUsed = 9, attempts = 9)
+                )
+            )
+        )
+
+        assertEquals(1080, bitmap.width)
+        assertTrue(distinctColours(bitmap) > 4)
+    }
+
+    /**
+     * A big table and a long case want the same space. The standings give way, because a
+     * lineup with no ranks and no scores on it is the least an investigative play has to
+     * say, and both blocks say how many rows they left off.
+     */
+    @Test
+    fun `a full table and a full case fit on the same card`() {
+        val bitmap = renderer.render(
+            card(
+                result = ShareResult.COOP_WIN,
+                standings = (1..12).map { standing("Player $it", isWinner = true) },
+                objectives = (1..8).map { ShareObjective("Lead $it", hintsUsed = 1, attempts = 2) },
+                turnOrder = (1..12).map { "Player $it" }
+            )
+        )
+
+        assertEquals(1920, bitmap.height)
+        assertTrue(distinctColours(bitmap) > 4)
+    }
+
+    /**
+     * Two cases with the same tally and the same number of puzzles, so the header and
+     * the standings land identically on both and the only thing that can differ is the
+     * list itself. That it differs at all is the proof the list is on the card; that the
+     * first difference is well below the header is the proof it is not just the tally.
+     */
+    @Test
+    fun `the puzzles themselves are drawn, not only the tally`() {
+        val one = renderer.render(
+            card(
+                result = ShareResult.COOP_WIN,
+                standings = listOf(standing("Aina", isWinner = true)),
+                objectives = listOf(
+                    ShareObjective("Alpha", hintsUsed = 1, attempts = 1),
+                    ShareObjective("Beta", hintsUsed = 0, attempts = 1)
+                )
+            )
+        )
+        val other = renderer.render(
+            card(
+                result = ShareResult.COOP_WIN,
+                standings = listOf(standing("Aina", isWinner = true)),
+                objectives = listOf(
+                    ShareObjective("Gamma", hintsUsed = 0, attempts = 1),
+                    ShareObjective("Delta", hintsUsed = 1, attempts = 1)
+                )
+            )
+        )
+
+        assertFalse("the objective list should be drawn", one.sameAs(other))
+        val changed = firstChangedRow(one, other)
+        assertTrue("expected the difference below the header but it was at $changed", changed > 600)
     }
 }

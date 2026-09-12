@@ -371,13 +371,6 @@ private fun HeaderCard(game: GameEntity, state: GameDetailUiState) {
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            game.bestPlayerCount?.let {
-                Text(
-                    text = stringResource(R.string.game_detail_best_at, it),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
             if (state.daysOnLoan != null && game.status == GameStatus.LENT_OUT) {
                 Text(
                     text = pluralStringResource(
@@ -469,8 +462,8 @@ private fun StatsRow(state: GameDetailUiState) {
                 label = stringResource(R.string.game_detail_avg_duration),
                 value = aggregates.avgMinutes?.let { DurationFormat.minutes(it.toInt()) } ?: "—",
                 supporting = state.game?.let { game ->
-                    // Showing what BGG claims next to what actually happens is the point;
-                    // the divergence is usually the more interesting number.
+                    // Showing what the box claims next to what actually happens is the
+                    // point; the divergence is usually the more interesting number.
                     if (game.minPlaytimeMinutes != null && game.maxPlaytimeMinutes != null) {
                         stringResource(R.string.game_detail_stated_duration) +
                             " ${game.minPlaytimeMinutes}–${game.maxPlaytimeMinutes}m"
@@ -584,22 +577,38 @@ private fun MetadataSection(game: GameEntity, state: GameDetailUiState, designer
         publishers.takeIf { it.isNotEmpty() }?.let {
             KeyValueRow(stringResource(R.string.game_detail_publishers), it.joinToString(", "))
         }
-        game.price?.let { KeyValueRow(stringResource(R.string.game_edit_price), money(game, it)) }
-        state.costs.forEach { cost ->
-            KeyValueRow(cost.label, money(game, cost.amount))
-        }
-        // Only worth a line once there is something for it to add up: with no accessory
-        // rows between them, a total would just repeat the price above it.
-        if (state.costs.isNotEmpty()) {
-            state.totalCost?.let {
-                KeyValueRow(stringResource(R.string.game_detail_total_cost), money(game, it))
-            }
-        }
+        CostRows(game, state)
         KeyValueRow(stringResource(R.string.game_edit_date_added), game.dateAdded)
         game.purchaseNote?.let {
             KeyValueRow(stringResource(R.string.game_edit_purchase_note), it)
         }
         game.notes?.let { KeyValueRow(stringResource(R.string.game_detail_notes), it) }
+    }
+}
+
+/**
+ * What the game has cost: the total first, then the lines that make it up, indented
+ * under it.
+ *
+ * The total leads because it is the figure the reader came for; the breakdown is there
+ * to be checked, not read. A lone line goes without a total, though: "Total cost
+ * RM50" over "Price RM50" says the same thing twice and breaks nothing down.
+ */
+@Composable
+private fun CostRows(game: GameEntity, state: GameDetailUiState) {
+    val breakdown = state.costBreakdown
+    val itemised = breakdown.size > 1
+    if (itemised) {
+        state.totalCost?.let {
+            KeyValueRow(stringResource(R.string.game_detail_total_cost), money(game, it))
+        }
+    }
+    breakdown.forEach { line ->
+        KeyValueRow(
+            label = line.label ?: stringResource(R.string.game_edit_price),
+            value = money(game, line.amount),
+            labelIndent = if (itemised) 16.dp else 0.dp
+        )
     }
 }
 

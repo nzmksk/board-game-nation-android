@@ -252,8 +252,11 @@ data class CostPerPlayRow(
 )
 
 /**
- * Actual average duration against the range BGG states. The divergence is one of the
- * more interesting things the data has to say, so it gets its own card.
+ * Actual average duration against the range the game states. That range is whatever is
+ * on the game's record -- a BGG import writes it, and so does anybody typing a game in
+ * by hand -- so it is the publisher's label rather than any one source's claim. The
+ * divergence is one of the more interesting things the data has to say, so it gets its
+ * own card.
  */
 data class DurationVsExpectedRow(
     @ColumnInfo(name = "game_id") val gameId: Long,

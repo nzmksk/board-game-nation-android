@@ -42,7 +42,6 @@ data class GameEntity(
     @ColumnInfo(name = "year_published") val yearPublished: Int? = null,
     @ColumnInfo(name = "min_players") val minPlayers: Int? = null,
     @ColumnInfo(name = "max_players") val maxPlayers: Int? = null,
-    @ColumnInfo(name = "best_player_count") val bestPlayerCount: String? = null,
     @ColumnInfo(name = "min_playtime_minutes") val minPlaytimeMinutes: Int? = null,
     @ColumnInfo(name = "max_playtime_minutes") val maxPlaytimeMinutes: Int? = null,
     @ColumnInfo(name = "weight") val weight: Double? = null,

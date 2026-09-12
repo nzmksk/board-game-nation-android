@@ -78,7 +78,32 @@ data class GameDetailUiState(
             val plays = aggregates?.playCount ?: 0
             return if (plays > 0) total / plays else null
         }
+
+    /**
+     * The lines that add up to [totalCost], for showing underneath it.
+     *
+     * The price leads because it is the one line every priced game has and nearly
+     * always the largest; the accessories follow by label, since the order they were
+     * typed in means nothing to anybody reading the list back, and alphabetical at
+     * least tells you where to look for the sleeves.
+     */
+    val costBreakdown: List<CostBreakdownLine>
+        get() {
+            val price = game?.price?.let { listOf(CostBreakdownLine(null, it)) }.orEmpty()
+            return price + costs
+                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
+                .map { CostBreakdownLine(it.label, it.amount) }
+        }
 }
+
+/**
+ * One line of the cost breakdown.
+ *
+ * [label] is null for the price of the box itself, which is named by a string resource
+ * rather than by anything the user typed and so cannot be resolved this far from the
+ * screen.
+ */
+data class CostBreakdownLine(val label: String?, val amount: Double)
 
 /** Whether deleting needs a confirmation, and what it would take with it. */
 data class DeletePrompt(val sessionCount: Int, val expansionCount: Int)

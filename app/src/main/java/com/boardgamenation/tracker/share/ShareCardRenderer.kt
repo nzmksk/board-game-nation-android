@@ -18,6 +18,7 @@ import com.boardgamenation.tracker.R
 import com.boardgamenation.tracker.core.time.DurationFormat
 import com.boardgamenation.tracker.domain.share.ShareArrangement
 import com.boardgamenation.tracker.domain.share.ShareCard
+import com.boardgamenation.tracker.domain.share.ShareObjective
 import com.boardgamenation.tracker.domain.share.ShareResult
 import com.boardgamenation.tracker.domain.share.ShareStanding
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -62,7 +63,8 @@ class ShareCardRenderer @Inject constructor(@param:ApplicationContext private va
         val headerBottom = drawHeader(canvas, card)
         val footerTop = drawFooter(canvas)
         val arrangementTop = drawArrangement(canvas, card, footerTop)
-        drawStandings(canvas, card, top = headerBottom, bottom = arrangementTop)
+        val objectivesTop = drawObjectives(canvas, card, arrangementTop)
+        drawStandings(canvas, card, top = headerBottom, bottom = objectivesTop)
 
         return bitmap
     }
@@ -109,13 +111,14 @@ class ShareCardRenderer @Inject constructor(@param:ApplicationContext private va
         )
         y += 28f
 
-        val figures = listOf(
+        val figures = listOfNotNull(
             DurationFormat.minutes(card.durationMinutes),
             context.resources.getQuantityString(
                 R.plurals.unit_players,
                 card.playerCount,
                 card.playerCount
-            )
+            ),
+            objectiveTally(card)
         ).joinToString(SEPARATOR)
         val figuresPaint = text(size = 42f, color = MUTED)
         canvas.drawText(figures, MARGIN, y + figuresPaint.textSize, figuresPaint)
@@ -156,6 +159,34 @@ class ShareCardRenderer @Inject constructor(@param:ApplicationContext private va
         }
 
         return y + 56f
+    }
+
+    /**
+     * "4 objectives · no hints", which on a good night is the boast the card is being
+     * sent for. It joins the duration and the player count because it is the same kind
+     * of fact: how big the evening was, before anything about how it went.
+     *
+     * The hint count is spelled out at zero, the way the session list spells it out,
+     * because zero is the interesting answer. Left off entirely on a play with no case,
+     * which is every play but an investigative one.
+     */
+    private fun objectiveTally(card: ShareCard): String? {
+        if (card.objectives.isEmpty()) return null
+        val objectives = context.resources.getQuantityString(
+            R.plurals.session_objectives,
+            card.objectives.size,
+            card.objectives.size
+        )
+        val hints = if (card.totalHints == 0) {
+            context.getString(R.string.session_hints_none)
+        } else {
+            context.resources.getQuantityString(
+                R.plurals.session_hints,
+                card.totalHints,
+                card.totalHints
+            )
+        }
+        return "$objectives$SEPARATOR$hints"
     }
 
     /**
@@ -387,6 +418,95 @@ class ShareCardRenderer @Inject constructor(@param:ApplicationContext private va
         return trimmed.substring(0, length).uppercase()
     }
 
+    // -- Objectives ---------------------------------------------------------------
+
+    /**
+     * What the case cost, puzzle by puzzle. Drawn upward from whatever the arrangement
+     * left, and returns its own top so the standings know where to stop.
+     *
+     * It takes its space from the standings, which is the right way round on the only
+     * play that has any. An investigative game shares one outcome, so its standings are
+     * a lineup of names with no ranks and no scores on them -- the least it has to say
+     * about the evening -- while the puzzles are the evening. The standings compress to
+     * make room and say how many players they dropped, which they already knew how to do.
+     */
+    private fun drawObjectives(canvas: Canvas, card: ShareCard, bottom: Float): Float {
+        if (card.objectives.isEmpty()) return bottom
+
+        val labelPaint = text(size = 32f, color = MUTED, bold = true).apply { letterSpacing = 0.16f }
+        val namePaint = text(size = 38f, color = INK)
+        val costPaint = text(size = 32f, color = MUTED).apply { textAlign = Paint.Align.RIGHT }
+
+        val visible = min(card.objectives.size, MAX_OBJECTIVE_LINES)
+        val remaining = card.objectives.size - visible
+        val labelHeight = labelPaint.textSize + 18f
+        val lines = visible + if (remaining > 0) 1 else 0
+        val top = bottom - 44f - labelHeight - lines * OBJECTIVE_LINE_HEIGHT
+
+        canvas.drawText(
+            context.getString(R.string.session_edit_objectives).uppercase(),
+            MARGIN,
+            top + labelPaint.textSize,
+            labelPaint
+        )
+
+        var y = top + labelHeight
+        card.objectives.take(visible).forEach { objective ->
+            val cost = objectiveCost(objective)
+            // Measured before the name is drawn, so a puzzle somebody gave a sentence
+            // for is ellipsised down to the room left rather than running under its cost.
+            val costWidth = costPaint.measureText(cost) + 32f
+            canvas.drawText(
+                cost,
+                WIDTH - MARGIN,
+                baselineIn(y, y + OBJECTIVE_LINE_HEIGHT, costPaint),
+                costPaint
+            )
+            canvas.drawText(
+                ellipsised(objective.objective, namePaint, CONTENT_WIDTH - costWidth),
+                MARGIN,
+                baselineIn(y, y + OBJECTIVE_LINE_HEIGHT, namePaint),
+                namePaint
+            )
+            y += OBJECTIVE_LINE_HEIGHT
+        }
+
+        if (remaining > 0) {
+            canvas.drawText(
+                context.resources.getQuantityString(
+                    R.plurals.share_card_more_objectives,
+                    remaining,
+                    remaining
+                ),
+                MARGIN,
+                baselineIn(y, y + OBJECTIVE_LINE_HEIGHT, namePaint),
+                text(size = 32f, color = MUTED)
+            )
+        }
+
+        return top - 40f
+    }
+
+    /**
+     * What one puzzle cost, as the parts worth saying.
+     *
+     * Hints appear when any were taken, attempts when it took more than one. Those are
+     * the floors -- an objective written down is one the table had a go at -- so a line
+     * that does not mention a figure is saying it was at its floor, and a line that
+     * mentions neither is a puzzle that cost nothing at all.
+     */
+    private fun objectiveCost(objective: ShareObjective): String {
+        if (objective.isClean) return context.getString(R.string.share_card_objective_clean)
+        return listOfNotNull(
+            objective.hintsUsed
+                .takeIf { it > 0 }
+                ?.let { context.resources.getQuantityString(R.plurals.session_hints, it, it) },
+            objective.attempts
+                .takeIf { it > 1 }
+                ?.let { context.resources.getQuantityString(R.plurals.session_attempts, it, it) }
+        ).joinToString(SEPARATOR)
+    }
+
     // -- Arrangement and footer ---------------------------------------------------
 
     /**
@@ -557,6 +677,14 @@ class ShareCardRenderer @Inject constructor(@param:ApplicationContext private va
         private const val MIN_ROW_HEIGHT = 88f
         private const val MAX_ROW_HEIGHT = 172f
         private const val OVERFLOW_HEIGHT = 52f
+
+        /**
+         * The puzzles the card lists before it starts counting them off instead. Five
+         * fills a case without leaving the standings under it nowhere to go; a case with
+         * more of them is a long evening, and the count says so.
+         */
+        private const val MAX_OBJECTIVE_LINES = 5
+        private const val OBJECTIVE_LINE_HEIGHT = 54f
 
         /** The tag beside a name: the space inside its pill, and before it. */
         private const val TAG_PADDING = 22f

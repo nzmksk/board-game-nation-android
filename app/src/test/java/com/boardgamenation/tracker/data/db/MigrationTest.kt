@@ -938,6 +938,34 @@ class MigrationTest {
         assertEquals("Roxley", db.tagDao().observeForGame(1).first().single().name)
     }
 
+    // --- best player count ------------------------------------------------------------
+
+    /**
+     * Nothing rescues these values, unlike the designers and publisher columns beside
+     * them. Those held names that moved to a shape that could hold them; this held free
+     * text no feature was left reading, so it goes with the column.
+     */
+    @Test
+    fun `the best player count column is gone and the games survive`() = runTest {
+        seedV1 { db ->
+            insertGame(db, id = 1, title = "Brass", designers = "NULL", bestPlayerCount = "'3–4'")
+            insertGame(db, id = 2, title = "Azul", designers = "NULL", bestPlayerCount = "NULL")
+        }
+
+        val db = openMigrated()
+
+        assertEquals(2, db.gameDao().getAllGames().size)
+        assertEquals("Brass", db.gameDao().getGame(1)!!.title)
+        assertFalse(
+            "best_player_count column should be dropped",
+            columnsOf(db, "games").contains("best_player_count")
+        )
+        // The rebuild copies the rest of the table across rather than only the column
+        // this migration cares about.
+        assertTrue(columnsOf(db, "games").contains("scoring_mode"))
+        assertEquals("2026-01-01", db.gameDao().getGame(2)!!.dateAdded)
+    }
+
     // --- plumbing -------------------------------------------------------------------
 
     /** Builds a database at schema version 1 and hands it to [block] to fill. */
@@ -990,13 +1018,14 @@ class MigrationTest {
         title: String,
         designers: String,
         baseGameId: Long? = null,
-        publisher: String = "NULL"
+        publisher: String = "NULL",
+        bestPlayerCount: String = "NULL"
     ) = db.execSQL(
         """
-        INSERT INTO games (id, title, designers, publisher, date_added, status, base_game_id,
-                           created_at, updated_at)
-        VALUES ($id, '$title', $designers, $publisher, '2026-01-01', 'OWNED',
-                ${baseGameId ?: "NULL"}, 0, 0)
+        INSERT INTO games (id, title, designers, publisher, best_player_count, date_added,
+                           status, base_game_id, created_at, updated_at)
+        VALUES ($id, '$title', $designers, $publisher, $bestPlayerCount, '2026-01-01',
+                'OWNED', ${baseGameId ?: "NULL"}, 0, 0)
         """.trimIndent()
     )
 

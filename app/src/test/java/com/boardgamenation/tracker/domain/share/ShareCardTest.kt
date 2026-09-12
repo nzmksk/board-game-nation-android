@@ -4,6 +4,7 @@ import com.boardgamenation.tracker.domain.model.CoopOutcome
 import com.boardgamenation.tracker.domain.model.ParticipantForm
 import com.boardgamenation.tracker.domain.model.ScoringMode
 import com.boardgamenation.tracker.domain.model.SessionForm
+import com.boardgamenation.tracker.domain.model.SessionObjective
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -24,6 +25,7 @@ class ShareCardTest {
         coopOutcome: CoopOutcome? = null,
         winningTeam: String? = null,
         modes: List<String> = emptyList(),
+        objectives: List<SessionObjective> = emptyList(),
         endReason: String? = null,
         participants: List<ParticipantForm>
     ) = SessionForm(
@@ -35,6 +37,7 @@ class ShareCardTest {
         coopOutcome = coopOutcome,
         winningTeam = winningTeam,
         modes = modes,
+        objectives = objectives,
         endReason = endReason,
         participants = participants
     )
@@ -404,5 +407,125 @@ class ShareCardTest {
         assertEquals("0", formatScore(0.0))
         assertEquals("-3", formatScore(-3.0))
         assertEquals("6.25", formatScore(6.25))
+    }
+
+    // --- objectives -----------------------------------------------------------------
+
+    @Test
+    fun `an investigative play carries its objectives in the order they were worked`() {
+        val card = ShareCard.of(
+            form(
+                scoringMode = ScoringMode.OBJECTIVE_BASED,
+                coopOutcome = CoopOutcome.WIN,
+                objectives = listOf(
+                    SessionObjective("The locked safe", hintsUsed = 0, attempts = 1),
+                    SessionObjective("The cellar", hintsUsed = 2, attempts = 3),
+                    SessionObjective("Chapter 3", hintsUsed = 1, attempts = 1)
+                ),
+                participants = listOf(player(1, "Aina"), player(2, "Ben"))
+            )
+        )
+
+        assertEquals(
+            listOf("The locked safe", "The cellar", "Chapter 3"),
+            card.objectives.map { it.objective }
+        )
+        assertEquals(listOf(0, 2, 1), card.objectives.map { it.hintsUsed })
+        assertEquals(listOf(1, 3, 1), card.objectives.map { it.attempts })
+    }
+
+    /** Every other mode has none, so nothing about them reaches a card that has no case. */
+    @Test
+    fun `a play in any other mode carries no objectives`() {
+        val card = ShareCard.of(
+            form(
+                scoringMode = ScoringMode.RANKED_SCORES,
+                objectives = listOf(SessionObjective("Left over from a mode change", hintsUsed = 4)),
+                participants = listOf(player(1, "Aina", placement = 1, isWinner = true))
+            )
+        )
+
+        assertTrue(card.objectives.isEmpty())
+        assertEquals(0, card.totalHints)
+    }
+
+    @Test
+    fun `the hints are totalled across the case`() {
+        val card = ShareCard.of(
+            form(
+                scoringMode = ScoringMode.OBJECTIVE_BASED,
+                coopOutcome = CoopOutcome.WIN,
+                objectives = listOf(
+                    SessionObjective("One", hintsUsed = 2),
+                    SessionObjective("Two", hintsUsed = 0),
+                    SessionObjective("Three", hintsUsed = 3)
+                ),
+                participants = listOf(player(1, "Aina"))
+            )
+        )
+
+        assertEquals(5, card.totalHints)
+    }
+
+    /**
+     * Zero hints is the answer worth reporting, not an absent one: a case cracked on the
+     * table's own reasoning is the whole reason the counts are recorded.
+     */
+    @Test
+    fun `a case cracked clean carries its objectives and no hints`() {
+        val card = ShareCard.of(
+            form(
+                scoringMode = ScoringMode.OBJECTIVE_BASED,
+                coopOutcome = CoopOutcome.WIN,
+                objectives = listOf(SessionObjective("One"), SessionObjective("Two")),
+                participants = listOf(player(1, "Aina"))
+            )
+        )
+
+        assertEquals(2, card.objectives.size)
+        assertEquals(0, card.totalHints)
+        assertTrue(card.objectives.all { it.isClean })
+    }
+
+    @Test
+    fun `an objective that cost something is not clean`() {
+        val card = ShareCard.of(
+            form(
+                scoringMode = ScoringMode.OBJECTIVE_BASED,
+                coopOutcome = CoopOutcome.WIN,
+                objectives = listOf(
+                    SessionObjective("Hinted", hintsUsed = 1, attempts = 1),
+                    SessionObjective("Retried", hintsUsed = 0, attempts = 2)
+                ),
+                participants = listOf(player(1, "Aina"))
+            )
+        )
+
+        assertEquals(listOf(false, false), card.objectives.map { it.isClean })
+    }
+
+    /**
+     * The same cleaning the form's own rules apply: blanks are not puzzles, the same
+     * puzzle named twice is one, and the counts are held to what they can mean.
+     */
+    @Test
+    fun `blank and duplicate objectives are dropped and the counts are held to range`() {
+        val card = ShareCard.of(
+            form(
+                scoringMode = ScoringMode.OBJECTIVE_BASED,
+                coopOutcome = CoopOutcome.WIN,
+                objectives = listOf(
+                    SessionObjective("  The safe  ", hintsUsed = 1),
+                    SessionObjective("the safe", hintsUsed = 9),
+                    SessionObjective("   "),
+                    SessionObjective("The cellar", hintsUsed = -3, attempts = 0)
+                ),
+                participants = listOf(player(1, "Aina"))
+            )
+        )
+
+        assertEquals(listOf("The safe", "The cellar"), card.objectives.map { it.objective })
+        assertEquals(listOf(1, 0), card.objectives.map { it.hintsUsed })
+        assertEquals(listOf(1, 1), card.objectives.map { it.attempts })
     }
 }

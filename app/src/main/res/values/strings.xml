@@ -103,7 +103,7 @@
     <string name="game_detail_hours">Hours</string>
     <string name="game_detail_win_rate">Win rate</string>
     <string name="game_detail_avg_duration">Average length</string>
-    <string name="game_detail_stated_duration">BGG says</string>
+    <string name="game_detail_stated_duration">Publisher label</string>
     <string name="game_detail_cost_per_play">Cost per play</string>
     <string name="game_detail_never_played">Never played</string>
     <string name="game_detail_first_player">Does going first win?</string>
@@ -131,7 +131,6 @@
         <item quantity="other">Out for %1$d days</item>
     </plurals>
     <string name="game_detail_weight">Weight</string>
-    <string name="game_detail_best_at">Best at %1$s</string>
     <string name="game_detail_designers">Designers</string>
     <string name="game_detail_publishers">Publishers</string>
     <string name="game_detail_bgg_rating">BGG rating</string>
@@ -153,7 +152,6 @@
     <string name="game_edit_year">Year published</string>
     <string name="game_edit_min_players">Min players</string>
     <string name="game_edit_max_players">Max players</string>
-    <string name="game_edit_best_players">Best with</string>
     <string name="game_edit_min_playtime">Min minutes</string>
     <string name="game_edit_max_playtime">Max minutes</string>
     <string name="game_edit_weight">Weight (1–5)</string>
@@ -260,6 +258,10 @@
         <item quantity="other">%1$d hints</item>
     </plurals>
     <string name="session_hints_none">no hints</string>
+    <plurals name="session_attempts">
+        <item quantity="one">%1$d attempt</item>
+        <item quantity="other">%1$d attempts</item>
+    </plurals>
     <string name="session_edit_notes">Notes</string>
     <string name="session_edit_expansions">Expansions used</string>
     <string name="session_edit_photo">Attach a photo</string>
@@ -293,6 +295,14 @@
         <item quantity="one">+%1$d more</item>
         <item quantity="other">+%1$d more</item>
     </plurals>
+    <plurals name="share_card_more_objectives">
+        <item quantity="one">+%1$d more</item>
+        <item quantity="other">+%1$d more</item>
+    </plurals>
+    <!-- What one objective cost when it cost nothing: no hints taken and right first go.
+         Every other line on that list says what the puzzle cost, so this is the word for
+         having nothing to report rather than a blank, which would read as unfinished. -->
+    <string name="share_card_objective_clean">clean</string>
     <!-- Marks a player whose first play of this game it was. Kept short: it is drawn as
          a tag beside the name, on a row that also has to hold a score. -->
     <string name="share_card_first_timer">First play</string>
@@ -389,8 +399,8 @@
     <string name="stats_most_played">Most played</string>
     <string name="stats_longest_sessions">Longest sessions</string>
     <string name="stats_shortest_sessions">Shortest sessions</string>
-    <string name="stats_duration_vs_bgg">Actual length vs BGG</string>
-    <string name="stats_duration_vs_bgg_body">How long games really take at your table.</string>
+    <string name="stats_duration_vs_stated">Actual length vs publisher label</string>
+    <string name="stats_duration_vs_stated_body">How long games really take at your table.</string>
     <string name="stats_by_day_of_week">Plays by day</string>
     <string name="stats_streak">Week streak</string>
     <string name="stats_h_index">H-index</string>
