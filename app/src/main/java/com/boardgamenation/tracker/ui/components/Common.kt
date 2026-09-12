@@ -46,6 +46,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -330,8 +331,13 @@ fun LoadingRows(modifier: Modifier = Modifier, count: Int = 5) {
     }
 }
 
+/**
+ * [labelIndent] shifts the label alone, to mark a row as subordinate to the one above
+ * it. Indenting the whole row would take the value column with it, and a column of
+ * figures that no longer lines up is harder to read than no indent at all.
+ */
 @Composable
-fun KeyValueRow(label: String, value: String, modifier: Modifier = Modifier) {
+fun KeyValueRow(label: String, value: String, modifier: Modifier = Modifier, labelIndent: Dp = 0.dp) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -342,7 +348,9 @@ fun KeyValueRow(label: String, value: String, modifier: Modifier = Modifier) {
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(140.dp)
+            modifier = Modifier
+                .width(140.dp)
+                .padding(start = labelIndent)
         )
         Spacer(Modifier.width(8.dp))
         Text(
