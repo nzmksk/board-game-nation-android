@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import com.boardgamenation.tracker.domain.share.ShareCard
+import com.boardgamenation.tracker.domain.share.ShareObjective
 import com.boardgamenation.tracker.domain.share.ShareResult
 import com.boardgamenation.tracker.domain.share.ShareStanding
 import java.time.LocalDate
@@ -60,6 +61,7 @@ class ShareCardRendererTest {
         standings: List<ShareStanding>,
         winningTeam: String? = null,
         mode: String? = null,
+        objectives: List<ShareObjective> = emptyList(),
         endReason: String? = null,
         turnOrder: List<String> = emptyList(),
         seating: List<String> = emptyList(),
@@ -73,6 +75,7 @@ class ShareCardRendererTest {
         standings = standings,
         winningTeam = winningTeam,
         mode = mode,
+        objectives = objectives,
         endReason = endReason,
         turnOrder = turnOrder,
         seating = seating,

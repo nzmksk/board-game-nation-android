@@ -4,6 +4,7 @@ import com.boardgamenation.tracker.domain.model.CoopOutcome
 import com.boardgamenation.tracker.domain.model.ParticipantForm
 import com.boardgamenation.tracker.domain.model.Seating
 import com.boardgamenation.tracker.domain.model.SessionForm
+import com.boardgamenation.tracker.domain.model.SessionObjectives
 import java.time.LocalDate
 import java.util.Locale
 
@@ -41,6 +42,23 @@ enum class ShareArrangement {
 
     /** Who sat beside whom, read round the table and wrapping back to the start. */
     SEATING
+}
+
+/**
+ * One puzzle the table worked through, and what it cost them.
+ *
+ * The counts are on the card rather than a formatted line, because "2 hints" and "clean"
+ * are strings somebody reads and every string on this card is a resource the renderer
+ * resolves. What is decided here is which facts are worth carrying, not how they read.
+ */
+data class ShareObjective(val objective: String, val hintsUsed: Int, val attempts: Int) {
+    /**
+     * Whether it fell first go with no help, which is the one case worth a word of its
+     * own. Every other line says what it cost; this one has nothing to report, and a
+     * blank beside a name would read as a puzzle nobody finished rather than as the
+     * best result the table can get.
+     */
+    val isClean: Boolean get() = hintsUsed == 0 && attempts <= 1
 }
 
 /** One player's line on the card. */
@@ -90,6 +108,13 @@ data class ShareCard(
     /** The configuration the game was set up with, when it was recorded. */
     val mode: String?,
 
+    /**
+     * The puzzles an investigative play worked through, in the order the table took
+     * them. Empty on every other kind of play, which is what keeps the card's objective
+     * section off a game that has no objectives to report.
+     */
+    val objectives: List<ShareObjective>,
+
     /** The rule that stopped a play, when one did. */
     val endReason: String?,
 
@@ -113,6 +138,13 @@ data class ShareCard(
     val isTeachingGame: Boolean
 ) {
     val playerCount: Int get() = standings.size
+
+    /**
+     * Hints taken across the whole case, which is the figure that says how the evening
+     * went. These games are nearly always won, so the outcome alone separates almost
+     * nothing: a case cracked clean and a case cracked on the fourth hint are both wins.
+     */
+    val totalHints: Int get() = objectives.sumOf { it.hintsUsed }
 
     val winners: List<String> get() = standings.filter { it.isWinner }.map { it.name }
 
@@ -156,6 +188,16 @@ data class ShareCard(
                     .map { it.toStanding(result, it.playerId in personalBests) },
                 winningTeam = form.winningTeam?.trim()?.takeIf(String::isNotEmpty),
                 mode = form.mode?.trim()?.takeIf(String::isNotEmpty),
+                // Only the mode that records them carries them. A play moved to another
+                // mode keeps its rows until the save drops them, and a card built from
+                // the form in between should show what the play now is.
+                objectives = if (form.hasObjectives) {
+                    SessionObjectives.clean(form.objectives).map {
+                        ShareObjective(it.objective, it.hintsUsed, it.attempts)
+                    }
+                } else {
+                    emptyList()
+                },
                 endReason = form.endReason?.trim()?.takeIf(String::isNotEmpty),
                 turnOrder = form.participants
                     .filter { it.turnOrder != null }
