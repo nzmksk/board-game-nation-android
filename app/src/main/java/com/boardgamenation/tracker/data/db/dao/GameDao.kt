@@ -11,6 +11,7 @@ import androidx.room.Update
 import androidx.sqlite.db.SupportSQLiteQuery
 import com.boardgamenation.tracker.data.db.entity.GameCostEntity
 import com.boardgamenation.tracker.data.db.entity.GameEntity
+import com.boardgamenation.tracker.data.db.entity.GameExpansionCrossRef
 import com.boardgamenation.tracker.data.db.entity.GameRatingEntity
 import com.boardgamenation.tracker.data.db.entity.GameTagCrossRef
 import com.boardgamenation.tracker.data.db.entity.SessionEntity
@@ -76,11 +77,78 @@ interface GameDao {
     )
     fun observeBaseGames(): Flow<List<GameEntity>>
 
-    @Query("SELECT * FROM games WHERE base_game_id = :baseGameId ORDER BY title COLLATE NOCASE")
+    /**
+     * What the edit form can offer as a base game for [gameId].
+     *
+     * Expansions are on the list, because an expansion of an expansion is a real box:
+     * Legends of the Sea Robbers goes on Catan: Seafarers, which goes on Catan. Whether a
+     * game is an expansion says what it needs to be played, not whether anything can be
+     * played on top of it.
+     *
+     * Two things are left off. A game cannot expand itself, and nor can it expand one of
+     * its own expansions -- that pair would expand each other, and each would appear in
+     * both halves of the other's details. Longer rings are not hunted for: nothing here
+     * follows a chain, so a ring costs a strange-looking page rather than a hang, and
+     * refusing them would mean a recursive query run on every keystroke of the form.
+     *
+     * A new game passes 0, which matches nothing, so the whole collection is on offer.
+     */
+    @Query(
+        """
+        SELECT * FROM games
+        WHERE id <> :gameId
+          AND id NOT IN (SELECT expansion_id FROM game_expansions WHERE base_game_id = :gameId)
+        ORDER BY title COLLATE NOCASE
+        """
+    )
+    suspend fun getBaseGameCandidates(gameId: Long): List<GameEntity>
+
+    /**
+     * The expansions that name this game, whether it is a base game or an expansion
+     * itself. Direct links only: the chain from Catan to Seafarers to Legends of the Sea
+     * Robbers is read one step at a time, and an expansion that plays on top of two
+     * games in that chain says so by linking to both.
+     */
+    @Query(
+        """
+        SELECT g.* FROM games g
+        JOIN game_expansions ge ON ge.expansion_id = g.id
+        WHERE ge.base_game_id = :baseGameId
+        ORDER BY g.title COLLATE NOCASE
+        """
+    )
     fun observeExpansionsOf(baseGameId: Long): Flow<List<GameEntity>>
 
-    @Query("SELECT * FROM games WHERE base_game_id = :baseGameId ORDER BY title COLLATE NOCASE")
+    @Query(
+        """
+        SELECT g.* FROM games g
+        JOIN game_expansions ge ON ge.expansion_id = g.id
+        WHERE ge.base_game_id = :baseGameId
+        ORDER BY g.title COLLATE NOCASE
+        """
+    )
     suspend fun getExpansionsOf(baseGameId: Long): List<GameEntity>
+
+    /** The other direction: what this expansion expands. */
+    @Query(
+        """
+        SELECT g.* FROM games g
+        JOIN game_expansions ge ON ge.base_game_id = g.id
+        WHERE ge.expansion_id = :expansionId
+        ORDER BY g.title COLLATE NOCASE
+        """
+    )
+    fun observeBaseGamesOf(expansionId: Long): Flow<List<GameEntity>>
+
+    @Query(
+        """
+        SELECT g.* FROM games g
+        JOIN game_expansions ge ON ge.base_game_id = g.id
+        WHERE ge.expansion_id = :expansionId
+        ORDER BY g.title COLLATE NOCASE
+        """
+    )
+    suspend fun getBaseGamesOf(expansionId: Long): List<GameEntity>
 
     /**
      * Everything the game detail screen needs in one pass. Incomplete sessions are
@@ -240,6 +308,36 @@ interface GameDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTagLinks(links: List<GameTagCrossRef>)
+
+    // --- expansion links --------------------------------------------------------------
+
+    /**
+     * Replaces the set of games one expansion expands, in one transaction and for the
+     * same reason [replaceTags] does: the form edits the whole set at once, and nothing
+     * should ever observe the expansion mid-swap attached to nothing.
+     */
+    @Transaction
+    suspend fun replaceBaseGames(expansionId: Long, baseGameIds: List<Long>) {
+        clearBaseGames(expansionId)
+        val links = baseGameIds.distinct()
+            // An expansion of itself is not a thing, and the link would show the game in
+            // both halves of its own details.
+            .filter { it != expansionId }
+            .map { GameExpansionCrossRef(expansionId = expansionId, baseGameId = it) }
+        if (links.isNotEmpty()) insertExpansionLinks(links)
+    }
+
+    @Query("DELETE FROM game_expansions WHERE expansion_id = :expansionId")
+    suspend fun clearBaseGames(expansionId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertExpansionLinks(links: List<GameExpansionCrossRef>)
+
+    @Query("SELECT * FROM game_expansions")
+    suspend fun getAllExpansionLinks(): List<GameExpansionCrossRef>
+
+    @Query("SELECT COUNT(*) FROM game_expansions")
+    suspend fun countExpansionLinks(): Int
 
     // --- accessory costs --------------------------------------------------------------
 

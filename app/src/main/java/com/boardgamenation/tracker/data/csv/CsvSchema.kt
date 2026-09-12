@@ -12,6 +12,7 @@ object CsvSchema {
 
     const val GAMES = "games.csv"
     const val GAME_COSTS = "game_costs.csv"
+    const val GAME_EXPANSIONS = "game_expansions.csv"
     const val TAGS = "tags.csv"
     const val GAME_TAGS = "game_tags.csv"
     const val PLAYERS = "players.csv"
@@ -28,7 +29,7 @@ object CsvSchema {
     const val MANIFEST = "manifest.csv"
 
     val ALL_FILES = listOf(
-        GAMES, GAME_COSTS, TAGS, GAME_TAGS, PLAYERS, SESSIONS, SESSION_PLAYERS,
+        GAMES, GAME_COSTS, GAME_EXPANSIONS, TAGS, GAME_TAGS, PLAYERS, SESSIONS, SESSION_PLAYERS,
         SESSION_EXPANSIONS, SESSION_MODES, SESSION_OBJECTIVES, RUBRICS, RUBRIC_CRITERIA,
         GAME_RATINGS, GAME_RATING_SCORES, ACHIEVEMENT_UNLOCKS, MANIFEST
     )
@@ -38,7 +39,7 @@ object CsvSchema {
      * has not been written yet.
      */
     val IMPORT_ORDER = listOf(
-        GAMES, GAME_COSTS, TAGS, GAME_TAGS, PLAYERS, SESSIONS, SESSION_PLAYERS,
+        GAMES, GAME_COSTS, GAME_EXPANSIONS, TAGS, GAME_TAGS, PLAYERS, SESSIONS, SESSION_PLAYERS,
         SESSION_EXPANSIONS, SESSION_MODES, SESSION_OBJECTIVES, RUBRICS, RUBRIC_CRITERIA,
         GAME_RATINGS, GAME_RATING_SCORES, ACHIEVEMENT_UNLOCKS
     )
@@ -48,11 +49,18 @@ object CsvSchema {
         "min_playtime_minutes", "max_playtime_minutes", "weight", "bgg_rating",
         "thumbnail_path", "date_added", "price",
         "currency", "purchase_note", "status", "wishlist_priority",
-        "lent_to", "lent_date", "is_expansion", "base_game_id", "scoring_mode",
+        "lent_to", "lent_date", "is_expansion", "scoring_mode",
         "high_score_wins", "notes", "created_at", "updated_at"
     )
 
     val gameCostColumns = listOf("id", "game_id", "label", "amount", "sort_order")
+
+    /**
+     * What each expansion expands. One row per pair, because an expansion can sit on more
+     * than one game; an archive from before this file has a `base_game_id` column on
+     * `games.csv` instead, and an import reads that as the one-element set it always was.
+     */
+    val gameExpansionColumns = listOf("expansion_id", "base_game_id")
 
     val tagColumns = listOf("id", "name", "kind")
 
@@ -136,6 +144,7 @@ object CsvSchema {
     fun requiredColumnsFor(file: String): List<String> = when (file) {
         GAMES -> listOf("title", "date_added", "status")
         GAME_COSTS -> listOf("game_id", "label", "amount")
+        GAME_EXPANSIONS -> listOf("expansion_id", "base_game_id")
         TAGS -> listOf("name", "kind")
         GAME_TAGS -> listOf("game_id", "tag_id")
         PLAYERS -> listOf("name")
@@ -155,6 +164,7 @@ object CsvSchema {
     fun columnsFor(file: String): List<String> = when (file) {
         GAMES -> gameColumns
         GAME_COSTS -> gameCostColumns
+        GAME_EXPANSIONS -> gameExpansionColumns
         TAGS -> tagColumns
         GAME_TAGS -> gameTagColumns
         PLAYERS -> playerColumns

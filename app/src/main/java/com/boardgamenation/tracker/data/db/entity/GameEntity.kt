@@ -9,28 +9,19 @@ import com.boardgamenation.tracker.domain.model.GameStatus
 import com.boardgamenation.tracker.domain.model.ScoringMode
 
 /**
- * The collection table. Expansions live here too, flagged by [isExpansion] and pointed
- * at their parent by [baseGameId], so every query that works on games works on
- * expansions without a second table.
+ * The collection table. Expansions live here too, flagged by [isExpansion], so every
+ * query that works on games works on expansions without a second table. What an
+ * expansion expands is in [GameExpansionCrossRef].
  *
  * The unique index on [bggId] relies on SQLite treating NULLs as distinct, which gives
  * "unique where not null" without a partial index Room cannot express.
  */
 @Entity(
     tableName = "games",
-    foreignKeys = [
-        ForeignKey(
-            entity = GameEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["base_game_id"],
-            onDelete = ForeignKey.SET_NULL
-        )
-    ],
     indices = [
         Index(value = ["bgg_id"], unique = true),
         Index(value = ["title"]),
-        Index(value = ["status"]),
-        Index(value = ["base_game_id"])
+        Index(value = ["status"])
     ]
 )
 data class GameEntity(
@@ -65,7 +56,6 @@ data class GameEntity(
     @ColumnInfo(name = "lent_date") val lentDate: String? = null,
 
     @ColumnInfo(name = "is_expansion", defaultValue = "0") val isExpansion: Boolean = false,
-    @ColumnInfo(name = "base_game_id") val baseGameId: Long? = null,
 
     /** Remembered so the session form opens in the shape this game needs. */
     @ColumnInfo(name = "scoring_mode", defaultValue = "RANKED_SCORES")
@@ -77,4 +67,44 @@ data class GameEntity(
     @ColumnInfo(name = "notes") val notes: String? = null,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
+/**
+ * Which games an expansion expands.
+ *
+ * A link table rather than a column on [GameEntity], because the answer is a set. Ticket
+ * to Ride: France plays on top of Ticket to Ride and of Ticket to Ride: Europe, and a
+ * single column had to pick one of them and drop the other.
+ *
+ * Both ends point at `games`, so an expansion of an expansion is the same row shape as an
+ * expansion of a base game: Legends of the Sea Robbers names Catan and Catan: Seafarers
+ * and needs nothing more to say so. Nothing walks the graph transitively, so a chain
+ * costs no more to read than a single link does.
+ *
+ * Deleting either end deletes the link and not the other game. That is the same promise
+ * the old `base_game_id` made by being nullable: an expansion outlives the base game
+ * somebody sold, because the box is still on the shelf.
+ */
+@Entity(
+    tableName = "game_expansions",
+    primaryKeys = ["expansion_id", "base_game_id"],
+    foreignKeys = [
+        ForeignKey(
+            entity = GameEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["expansion_id"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = GameEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["base_game_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index(value = ["base_game_id"])]
+)
+data class GameExpansionCrossRef(
+    @ColumnInfo(name = "expansion_id") val expansionId: Long,
+    @ColumnInfo(name = "base_game_id") val baseGameId: Long
 )
