@@ -55,6 +55,26 @@ data class GameDetailUiState(
 ) {
     val currentRating: RatingWithRubric? get() = ratings.firstOrNull()
 
+    /**
+     * Whether the Expansions section is worth drawing.
+     *
+     * A base game keeps its heading either way, note and all: whether anything expands it
+     * is a fact about the game, and "no expansions recorded" is a real answer there.
+     *
+     * An expansion with nothing on top of it is the ordinary case rather than news. An
+     * expansion of an expansion exists -- Legends of the Sea Robbers sits on Catan:
+     * Seafarers -- but it is rare enough that the note would be permanent furniture under
+     * every expansion in the collection, directly under the section that just said what
+     * this one goes with.
+     */
+    val showsExpansions: Boolean get() = game?.isExpansion != true || expansions.isNotEmpty()
+
+    /**
+     * The mirror of [showsExpansions]. Anything flagged as an expansion is asked what it
+     * expands, and a game that is not still answers if something linked it anyway.
+     */
+    val showsBaseGames: Boolean get() = game?.isExpansion == true || baseGames.isNotEmpty()
+
     val accessoriesTotal: Double get() = costs.sumOf { it.amount }
 
     /**
