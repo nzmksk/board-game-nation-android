@@ -66,6 +66,10 @@ data class GameEditState(
     val categories: List<String> = emptyList(),
     val designers: List<String> = emptyList(),
     val publishers: List<String> = emptyList(),
+    /**
+     * What can be picked in [baseGameIds]. Expansions are among them: an expansion of an
+     * expansion is an ordinary box, and Legends of the Sea Robbers goes on Catan: Seafarers.
+     */
     val baseGameOptions: List<GameEntity> = emptyList(),
     val isNew: Boolean = true,
     val isSaving: Boolean = false,
@@ -103,7 +107,7 @@ class GameEditViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val defaultCurrency = settingsRepository.settings.first().defaultCurrency
-            val options = gameRepository.observeBaseGames().first()
+            val options = gameRepository.getBaseGameCandidates(gameId)
 
             if (gameId == 0L) {
                 _state.value = GameEditState(
@@ -144,8 +148,7 @@ class GameEditViewModel @Inject constructor(
                         categories = tags.filter { it.kind == TagKind.CATEGORY }.map { it.name },
                         designers = tags.filter { it.kind == TagKind.DESIGNER }.map { it.name },
                         publishers = tags.filter { it.kind == TagKind.PUBLISHER }.map { it.name },
-                        // A game cannot be its own base game.
-                        baseGameOptions = options.filter { it.id != game.id },
+                        baseGameOptions = options,
                         isNew = false
                     )
                 }
