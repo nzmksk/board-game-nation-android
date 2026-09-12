@@ -78,6 +78,32 @@ interface GameDao {
     fun observeBaseGames(): Flow<List<GameEntity>>
 
     /**
+     * What the edit form can offer as a base game for [gameId].
+     *
+     * Expansions are on the list, because an expansion of an expansion is a real box:
+     * Legends of the Sea Robbers goes on Catan: Seafarers, which goes on Catan. Whether a
+     * game is an expansion says what it needs to be played, not whether anything can be
+     * played on top of it.
+     *
+     * Two things are left off. A game cannot expand itself, and nor can it expand one of
+     * its own expansions -- that pair would expand each other, and each would appear in
+     * both halves of the other's details. Longer rings are not hunted for: nothing here
+     * follows a chain, so a ring costs a strange-looking page rather than a hang, and
+     * refusing them would mean a recursive query run on every keystroke of the form.
+     *
+     * A new game passes 0, which matches nothing, so the whole collection is on offer.
+     */
+    @Query(
+        """
+        SELECT * FROM games
+        WHERE id <> :gameId
+          AND id NOT IN (SELECT expansion_id FROM game_expansions WHERE base_game_id = :gameId)
+        ORDER BY title COLLATE NOCASE
+        """
+    )
+    suspend fun getBaseGameCandidates(gameId: Long): List<GameEntity>
+
+    /**
      * The expansions that name this game, whether it is a base game or an expansion
      * itself. Direct links only: the chain from Catan to Seafarers to Legends of the Sea
      * Robbers is read one step at a time, and an expansion that plays on top of two

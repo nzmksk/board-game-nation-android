@@ -73,6 +73,9 @@ class GameRepository @Inject constructor(
 
     suspend fun getBaseGamesOf(expansionId: Long): List<GameEntity> = gameDao.getBaseGamesOf(expansionId)
 
+    /** Everything the edit form can offer this game as a base game, expansions included. */
+    suspend fun getBaseGameCandidates(gameId: Long): List<GameEntity> = gameDao.getBaseGameCandidates(gameId)
+
     /** Replaces the set of games an expansion expands with the one the form is holding. */
     suspend fun replaceBaseGames(expansionId: Long, baseGameIds: List<Long>) {
         gameDao.replaceBaseGames(expansionId, baseGameIds)

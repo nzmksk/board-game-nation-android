@@ -276,6 +276,53 @@ class GameDaoTest {
         assertEquals(listOf("Catan", "Seafarers"), gameDao.getBaseGamesOf(legends).map { it.title })
     }
 
+    /**
+     * The picker offers expansions as well, which is what lets a chain be recorded at all.
+     * Being an expansion says what a box needs to be played, not whether anything can be
+     * played on top of it.
+     */
+    @Test
+    fun `an expansion is offered as a base game`() = runTest {
+        gameDao.insert(DatabaseTestFixture.game("Catan"))
+        gameDao.insert(DatabaseTestFixture.game("Seafarers", isExpansion = true))
+        val legends = gameDao.insert(DatabaseTestFixture.game("Legends", isExpansion = true))
+
+        assertEquals(
+            listOf("Catan", "Seafarers"),
+            gameDao.getBaseGameCandidates(legends).map { it.title }
+        )
+    }
+
+    /**
+     * Itself, and anything already sitting on top of it. Either pair would expand each
+     * other and appear in both halves of the other's details.
+     */
+    @Test
+    fun `the base game picker leaves out the game and its own expansions`() = runTest {
+        val catan = gameDao.insert(DatabaseTestFixture.game("Catan"))
+        val seafarers = gameDao.insert(DatabaseTestFixture.game("Seafarers", isExpansion = true))
+        val legends = gameDao.insert(DatabaseTestFixture.game("Legends", isExpansion = true))
+        gameDao.replaceBaseGames(legends, listOf(seafarers))
+
+        assertEquals(
+            listOf("Legends", "Seafarers"),
+            gameDao.getBaseGameCandidates(catan).map { it.title }
+        )
+        assertEquals(listOf("Catan"), gameDao.getBaseGameCandidates(seafarers).map { it.title })
+    }
+
+    /** A game being added has no id yet, so nothing is excluded from its picker. */
+    @Test
+    fun `a new game is offered the whole collection as base games`() = runTest {
+        gameDao.insert(DatabaseTestFixture.game("Catan"))
+        gameDao.insert(DatabaseTestFixture.game("Wingspan"))
+
+        assertEquals(
+            listOf("Catan", "Wingspan"),
+            gameDao.getBaseGameCandidates(0).map { it.title }
+        )
+    }
+
     @Test
     fun `replacing base games swaps the whole set`() = runTest {
         val original = gameDao.insert(DatabaseTestFixture.game("Ticket to Ride"))
