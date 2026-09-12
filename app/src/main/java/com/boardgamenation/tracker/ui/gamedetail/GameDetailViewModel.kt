@@ -33,7 +33,12 @@ data class GameDetailUiState(
     val aggregates: GameAggregates? = null,
     val tags: List<TagEntity> = emptyList(),
     val sessions: List<SessionListItem> = emptyList(),
+
+    /** What sits on top of this game, whether it is a base game or an expansion itself. */
     val expansions: List<GameEntity> = emptyList(),
+
+    /** What this game sits on top of. Empty unless it is an expansion. */
+    val baseGames: List<GameEntity> = emptyList(),
     val ratings: List<RatingWithRubric> = emptyList(),
 
     /** Sleeves, inserts and the rest, in the order they were entered. */
@@ -126,12 +131,18 @@ class GameDetailViewModel @Inject constructor(
      * out to be read, and it miscasts silently the day somebody reorders it.
      */
     private data class Extras(
-        val expansions: List<GameEntity>,
+        val related: Related,
         val ratings: List<RatingWithRubric>,
         val factions: List<FactionRecord>,
         val firstPlayer: FirstPlayerRecord,
         val costs: List<GameCostEntity>
     )
+
+    /**
+     * Both directions of the expansion graph, one step each. They travel together because
+     * they are the same question asked from either end, and because a combine takes five.
+     */
+    private data class Related(val expansions: List<GameEntity>, val baseGames: List<GameEntity>)
 
     private val _deletePrompt = MutableStateFlow<DeletePrompt?>(null)
     val deletePrompt: StateFlow<DeletePrompt?> = _deletePrompt
@@ -145,7 +156,11 @@ class GameDetailViewModel @Inject constructor(
         gameRepository.observeTags(gameId),
         sessionRepository.observeSessions(SessionFilter(gameId = gameId)),
         combine(
-            gameRepository.observeExpansions(gameId),
+            combine(
+                gameRepository.observeExpansions(gameId),
+                gameRepository.observeBaseGamesOf(gameId),
+                ::Related
+            ),
             rubricRepository.observeRatingsFor(gameId),
             gameRepository.observeFactionRecords(gameId),
             statsRepository.firstPlayerRecord(gameId),
@@ -158,7 +173,8 @@ class GameDetailViewModel @Inject constructor(
             aggregates = aggregates,
             tags = tags,
             sessions = sessions,
-            expansions = extras.expansions,
+            expansions = extras.related.expansions,
+            baseGames = extras.related.baseGames,
             ratings = extras.ratings,
             costs = extras.costs,
             factions = extras.factions,
