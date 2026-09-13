@@ -194,7 +194,10 @@ fun PlayerDetailScreen(onBack: () -> Unit, onOpenSession: (Long) -> Unit, viewMo
                     )
                 }
             } else {
-                items(state.personalBests.size, key = { state.personalBests[it].gameId }) { index ->
+                items(
+                    state.personalBests.size,
+                    key = { personalBestKey(state.personalBests[it].gameId) }
+                ) { index ->
                     val best = state.personalBests[index]
                     KeyValueRow(
                         label = best.title,
@@ -212,7 +215,7 @@ fun PlayerDetailScreen(onBack: () -> Unit, onOpenSession: (Long) -> Unit, viewMo
             }
 
             item { SectionHeader(stringResource(R.string.sessions_title)) }
-            items(state.sessions.size, key = { state.sessions[it].id }) { index ->
+            items(state.sessions.size, key = { sessionKey(state.sessions[it].id) }) { index ->
                 SessionRow(
                     session = state.sessions[index],
                     showGameTitle = true,
@@ -222,6 +225,20 @@ fun PlayerDetailScreen(onBack: () -> Unit, onOpenSession: (Long) -> Unit, viewMo
         }
     }
 }
+
+/**
+ * The key the lazy list holds a personal best row by, and the key it holds a play by.
+ *
+ * One list, two id spaces: a best is a game and a row below it is a session, and game 17
+ * has nothing to do with session 17. A lazy list keeps one set of keys across every
+ * section of it, so the bare ids would hand it the same key twice and it would throw the
+ * moment both rows were measured together -- a scroll down the profile, not an open of
+ * it, which is what made this look like a scrolling bug. Saying which id each row is
+ * holding keeps the two apart, the way the drafts in the sessions tab already do.
+ */
+internal fun personalBestKey(gameId: Long): String = "best-$gameId"
+
+internal fun sessionKey(sessionId: Long): String = "session-$sessionId"
 
 /**
  * A score as it was entered. Whole numbers lose the decimal point -- most games are
