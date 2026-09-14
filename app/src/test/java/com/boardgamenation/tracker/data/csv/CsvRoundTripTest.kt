@@ -102,13 +102,9 @@ class CsvRoundTripTest {
             DatabaseTestFixture.game("Catan", bggId = 13, price = 120.0)
         )
         val seafarers = db.gameDao().insert(
-            DatabaseTestFixture.game(
-                "Catan: Seafarers",
-                bggId = 325,
-                isExpansion = true,
-                baseGameId = catan
-            )
+            DatabaseTestFixture.game("Catan: Seafarers", bggId = 325, isExpansion = true)
         )
+        db.gameDao().replaceBaseGames(seafarers, listOf(catan))
         val wingspan = db.gameDao().insert(
             DatabaseTestFixture.game("Wingspan, Oceania", price = 90.0)
         )
@@ -417,7 +413,32 @@ class CsvRoundTripTest {
 
         val expansion = db.gameDao().getGameByTitle("Catan: Seafarers")!!
         val base = db.gameDao().getGameByTitle("Catan")!!
-        assertEquals(base.id, expansion.baseGameId)
+        assertEquals(listOf(base.id), db.gameDao().getBaseGamesOf(expansion.id).map { it.id })
+    }
+
+    /**
+     * The whole set, not the first of it. An expansion that goes on top of two games is
+     * exactly what the old single column could not write down, so it is what the archive
+     * has to be able to carry.
+     */
+    @Test
+    fun `an expansion with several base games keeps all of them`() = runTest {
+        populate()
+        val original = db.gameDao().getGameByTitle("Catan")!!
+        val europe = db.gameDao().getGameByTitle("Wingspan, Oceania")!!
+        val expansion = db.gameDao().getGameByTitle("Catan: Seafarers")!!
+        db.gameDao().replaceBaseGames(expansion.id, listOf(original.id, europe.id))
+
+        val files = exporter.buildFiles()
+        maintenance.wipeUserData()
+        importer.import(files, ImportMode.REPLACE)
+
+        assertEquals(
+            listOf("Catan", "Wingspan, Oceania"),
+            db.gameDao().getBaseGamesOf(
+                db.gameDao().getGameByTitle("Catan: Seafarers")!!.id
+            ).map { it.title }
+        )
     }
 
     @Test

@@ -846,7 +846,70 @@ class MigrationTest {
         raw.query("PRAGMA foreign_key_check").use { cursor ->
             assertEquals("dangling foreign keys after migration", 0, cursor.count)
         }
-        assertEquals(1L, db.gameDao().getGame(2)!!.baseGameId)
+        assertEquals(listOf("Catan"), db.gameDao().getBaseGamesOf(2).map { it.title })
+    }
+
+    // --- expansion links ----------------------------------------------------------------
+
+    /**
+     * The column held one base game, and the link table holds a set. Every expansion comes
+     * out of the migration with exactly what it had, as the only row of its set.
+     */
+    @Test
+    fun `the base game column becomes a link row`() = runTest {
+        seedV1 { db ->
+            insertGame(db, id = 1, title = "Catan", designers = "NULL")
+            insertGame(db, id = 2, title = "Catan: Seafarers", designers = "NULL", baseGameId = 1)
+            insertGame(db, id = 3, title = "Azul", designers = "NULL")
+        }
+
+        val db = openMigrated()
+
+        assertFalse(
+            "base_game_id column should be dropped",
+            columnsOf(db, "games").contains("base_game_id")
+        )
+        assertEquals(listOf("Catan"), db.gameDao().getBaseGamesOf(2).map { it.title })
+        assertEquals(listOf("Catan: Seafarers"), db.gameDao().getExpansionsOf(1).map { it.title })
+        // A game that expanded nothing gets no link row invented for it.
+        assertEquals(emptyList<String>(), db.gameDao().getBaseGamesOf(3).map { it.title })
+        assertEquals(1, db.gameDao().countExpansionLinks())
+    }
+
+    /**
+     * What the move is for. A migrated collection can say the thing the column could not,
+     * with no further schema change: the second base game is one more row.
+     */
+    @Test
+    fun `a migrated expansion can take a second base game`() = runTest {
+        seedV1 { db ->
+            insertGame(db, id = 1, title = "Ticket to Ride", designers = "NULL")
+            insertGame(db, id = 2, title = "Ticket to Ride: Europe", designers = "NULL")
+            insertGame(db, id = 3, title = "Ticket to Ride: France", designers = "NULL", baseGameId = 1)
+        }
+
+        val db = openMigrated()
+        db.gameDao().replaceBaseGames(3, listOf(1, 2))
+
+        assertEquals(
+            listOf("Ticket to Ride", "Ticket to Ride: Europe"),
+            db.gameDao().getBaseGamesOf(3).map { it.title }
+        )
+    }
+
+    /** The link goes; the expansion stays, because the box is still on the shelf. */
+    @Test
+    fun `deleting a base game after the migration leaves the expansion behind`() = runTest {
+        seedV1 { db ->
+            insertGame(db, id = 1, title = "Catan", designers = "NULL")
+            insertGame(db, id = 2, title = "Catan: Seafarers", designers = "NULL", baseGameId = 1)
+        }
+
+        val db = openMigrated()
+        db.gameDao().delete(db.gameDao().getGame(1)!!)
+
+        assertEquals("Catan: Seafarers", db.gameDao().getGame(2)!!.title)
+        assertEquals(0, db.gameDao().countExpansionLinks())
     }
 
     // --- publishers -----------------------------------------------------------------

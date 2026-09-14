@@ -24,10 +24,11 @@ import org.robolectric.RobolectricTestRunner
  * Importing a CSV archive written by an older version of the app.
  *
  * This is the other half of the backup story, next to `MigrationTest`. A CSV export taken
- * before this change still carries `designers`, `publisher` and `best_player_count`
- * columns on games and says nothing at all about how a play ended, and somebody restoring
- * one of those archives should not silently lose a field from every game in their
- * collection -- nor have the import refuse a file over a column that has since gone.
+ * before this change still carries `designers`, `publisher`, `best_player_count` and
+ * `base_game_id` columns on games and says nothing at all about how a play ended, and
+ * somebody restoring one of those archives should not silently lose a field from every
+ * game in their collection -- nor have the import refuse a file over a column that has
+ * since gone.
  *
  * The files here are written out by hand rather than produced by the exporter, because
  * the whole point is a shape the current exporter can no longer produce.
@@ -74,17 +75,18 @@ class LegacyCsvImportTest {
     fun tearDown() = db.close()
 
     /**
-     * A version 1 archive: `designers`, `publisher` and `best_player_count` present on
-     * games, no `sudden_death_possible`, and sessions without `end_condition` or
-     * `end_reason`. Tag ids are deliberately high, so a tag created during the import
-     * would collide if it were created before these rows were restored.
+     * A version 1 archive: `designers`, `publisher`, `best_player_count` and
+     * `base_game_id` present on games, no `sudden_death_possible`, and sessions without
+     * `end_condition` or `end_reason`. Tag ids are deliberately high, so a tag created
+     * during the import would collide if it were created before these rows were restored.
      */
     private fun legacyFiles(): Map<String, String> = mapOf(
         CsvSchema.GAMES to """
-            id,title,designers,publisher,best_player_count,date_added,status,scoring_mode,created_at,updated_at
-            1,7 Wonders Duel,"Antoine Bauza, Bruno Cathala",Repos Production,2,2026-01-01,OWNED,RANKED_SCORES,0,0
-            2,Cyclades,Bruno Cathala,"Matagot, SAS",3-4,2026-01-02,OWNED,RANKED_SCORES,0,0
-            3,Prototype,,,,2026-01-03,OWNED,RANKED_SCORES,0,0
+            id,title,designers,publisher,best_player_count,date_added,status,scoring_mode,is_expansion,base_game_id,created_at,updated_at
+            1,7 Wonders Duel,"Antoine Bauza, Bruno Cathala",Repos Production,2,2026-01-01,OWNED,RANKED_SCORES,0,,0,0
+            2,Cyclades,Bruno Cathala,"Matagot, SAS",3-4,2026-01-02,OWNED,RANKED_SCORES,0,,0,0
+            3,Prototype,,,,2026-01-03,OWNED,RANKED_SCORES,0,,0,0
+            4,7 Wonders Duel: Pantheon,Antoine Bauza,Repos Production,,2026-01-04,OWNED,RANKED_SCORES,1,1,0,0
         """.trimIndent(),
         CsvSchema.TAGS to """
             id,name,kind
@@ -115,8 +117,29 @@ class LegacyCsvImportTest {
         val result = importer.import(legacyFiles(), ImportMode.REPLACE)
 
         assertTrue("unexpected errors: ${result.errors}", result.errors.isEmpty())
-        assertEquals(3, db.gameDao().getAllGames().size)
+        assertEquals(4, db.gameDao().getAllGames().size)
         assertEquals(1, db.sessionDao().count())
+    }
+
+    /**
+     * Expansion links used to be a `base_game_id` column, which held one answer where the
+     * question has a set of them. The value becomes the one-element set it always meant,
+     * rather than the expansion coming back attached to nothing.
+     */
+    @Test
+    fun `the old base game column is rescued into an expansion link`() = runTest {
+        importer.import(legacyFiles(), ImportMode.REPLACE)
+
+        assertEquals(
+            listOf("7 Wonders Duel"),
+            db.gameDao().getBaseGamesOf(4).map { it.title }
+        )
+        assertEquals(
+            listOf("7 Wonders Duel: Pantheon"),
+            db.gameDao().getExpansionsOf(1).map { it.title }
+        )
+        // A base game with an empty cell gets no link invented for it.
+        assertEquals(1, db.gameDao().countExpansionLinks())
     }
 
     @Test

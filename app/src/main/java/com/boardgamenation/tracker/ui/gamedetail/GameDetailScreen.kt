@@ -195,27 +195,28 @@ fun GameDetailScreen(
                 )
             }
 
-            item { SectionHeader(stringResource(R.string.game_detail_expansions)) }
-            if (state.expansions.isEmpty()) {
-                item {
-                    Text(
-                        text = stringResource(R.string.game_detail_no_expansions),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
+            // For an expansion, the first thing worth knowing is what it goes with. It
+            // leads the Expansions section below, which is the same relationship read from
+            // the other end, so the two sit together.
+            if (state.showsBaseGames) {
+                item { SectionHeader(stringResource(R.string.game_detail_expansion_for)) }
+                if (state.baseGames.isEmpty()) {
+                    item { EmptySectionNote(stringResource(R.string.game_detail_no_base_games)) }
+                } else {
+                    items(state.baseGames.size) { index ->
+                        GameLinkRow(game = state.baseGames[index], onClick = onOpenGame)
+                    }
                 }
-            } else {
-                items(state.expansions.size) { index ->
-                    val expansion = state.expansions[index]
-                    Text(
-                        text = expansion.title,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpenGame(expansion.id) }
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
-                    )
+            }
+
+            if (state.showsExpansions) {
+                item { SectionHeader(stringResource(R.string.game_detail_expansions)) }
+                if (state.expansions.isEmpty()) {
+                    item { EmptySectionNote(stringResource(R.string.game_detail_no_expansions)) }
+                } else {
+                    items(state.expansions.size) { index ->
+                        GameLinkRow(game = state.expansions[index], onClick = onOpenGame)
+                    }
                 }
             }
 
@@ -384,6 +385,30 @@ private fun HeaderCard(game: GameEntity, state: GameDetailUiState) {
             }
         }
     }
+}
+
+/** One related game, as a row that opens it. */
+@Composable
+private fun GameLinkRow(game: GameEntity, onClick: (Long) -> Unit) {
+    Text(
+        text = game.title,
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick(game.id) }
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    )
+}
+
+/** The line a section shows in place of the rows it has none of. */
+@Composable
+private fun EmptySectionNote(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+    )
 }
 
 /**

@@ -883,6 +883,145 @@ object Migrations {
     }
 
     /**
+     * Moves what an expansion expands out of a column and into a link table.
+     *
+     * `games.base_game_id` held one answer, and the question has more than one: Ticket to
+     * Ride: France expands both Ticket to Ride and Ticket to Ride: Europe, and the column
+     * could only name whichever of them was picked on the form. The pairs move to
+     * `game_expansions`, which also lets an expansion expand another expansion -- Legends
+     * of the Sea Robbers sits on Catan and on Catan: Seafarers -- because both ends of the
+     * link are ordinary `games` rows.
+     *
+     * The existing links are copied to a temp table before `games` is rebuilt, so the
+     * pairs outlive the column they came from; nothing is dropped until they are safely
+     * out. Every expansion keeps exactly the base game it had, as the only row of its set.
+     *
+     * `ON DELETE CASCADE` on both ends replaces what the nullable column promised. A link
+     * row dies with either game and takes neither with it, so an expansion still outlives
+     * the base game somebody sold.
+     *
+     * minSdk 26 ships SQLite 3.18, which predates ALTER TABLE DROP COLUMN (3.35), so
+     * removing the column is the create/copy/drop/rename recipe again, AUTOINCREMENT
+     * counter carried over by hand exactly as in [MIGRATION_16_17].
+     */
+    private val MIGRATION_17_18 = Migration(17, 18) { db ->
+        db.execSQL(
+            "CREATE TEMP TABLE expansion_links AS " +
+                "SELECT id AS expansion_id, base_game_id FROM games " +
+                " WHERE base_game_id IS NOT NULL"
+        )
+        db.execSQL(
+            "CREATE TEMP TABLE games_seq AS " +
+                "SELECT seq FROM sqlite_sequence WHERE name = 'games'"
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `games_new` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `bgg_id` INTEGER,
+                `title` TEXT NOT NULL,
+                `year_published` INTEGER,
+                `min_players` INTEGER,
+                `max_players` INTEGER,
+                `min_playtime_minutes` INTEGER,
+                `max_playtime_minutes` INTEGER,
+                `weight` REAL,
+                `bgg_rating` REAL,
+                `thumbnail_path` TEXT,
+                `date_added` TEXT NOT NULL,
+                `price` REAL,
+                `currency` TEXT NOT NULL DEFAULT 'MYR',
+                `purchase_note` TEXT,
+                `status` TEXT NOT NULL,
+                `wishlist_priority` INTEGER,
+                `lent_to` TEXT,
+                `lent_date` TEXT,
+                `is_expansion` INTEGER NOT NULL DEFAULT 0,
+                `scoring_mode` TEXT NOT NULL DEFAULT 'RANKED_SCORES',
+                `high_score_wins` INTEGER NOT NULL DEFAULT 1,
+                `notes` TEXT,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO `games_new` (
+                `id`, `bgg_id`, `title`, `year_published`, `min_players`, `max_players`,
+                `min_playtime_minutes`, `max_playtime_minutes`,
+                `weight`, `bgg_rating`, `thumbnail_path`, `date_added`, `price`,
+                `currency`, `purchase_note`, `status`, `wishlist_priority`,
+                `lent_to`, `lent_date`, `is_expansion`,
+                `scoring_mode`, `high_score_wins`, `notes`, `created_at`, `updated_at`
+            )
+            SELECT
+                `id`, `bgg_id`, `title`, `year_published`, `min_players`, `max_players`,
+                `min_playtime_minutes`, `max_playtime_minutes`,
+                `weight`, `bgg_rating`, `thumbnail_path`, `date_added`, `price`,
+                `currency`, `purchase_note`, `status`, `wishlist_priority`,
+                `lent_to`, `lent_date`, `is_expansion`,
+                `scoring_mode`, `high_score_wins`, `notes`, `created_at`, `updated_at`
+            FROM `games`
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE `games`")
+        db.execSQL("ALTER TABLE `games_new` RENAME TO `games`")
+
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_games_bgg_id` ON `games` (`bgg_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_games_title` ON `games` (`title`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_games_status` ON `games` (`status`)")
+
+        // Created after the rebuild so its REFERENCES clause is written against the table
+        // that is staying, rather than against one about to be dropped and renamed over.
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `game_expansions` (
+                `expansion_id` INTEGER NOT NULL,
+                `base_game_id` INTEGER NOT NULL,
+                PRIMARY KEY(`expansion_id`, `base_game_id`),
+                FOREIGN KEY(`expansion_id`) REFERENCES `games`(`id`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`base_game_id`) REFERENCES `games`(`id`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_game_expansions_base_game_id` " +
+                "ON `game_expansions` (`base_game_id`)"
+        )
+        // A link whose base game is not a row here would be a dangling reference the
+        // column could not hold either, since it was a foreign key too.
+        db.execSQL(
+            """
+            INSERT OR IGNORE INTO `game_expansions` (`expansion_id`, `base_game_id`)
+            SELECT expansion_id, base_game_id FROM expansion_links
+             WHERE base_game_id IN (SELECT id FROM games)
+               AND expansion_id IN (SELECT id FROM games)
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE expansion_links")
+
+        db.execSQL(
+            """
+            UPDATE sqlite_sequence
+               SET seq = (SELECT seq FROM games_seq)
+             WHERE name = 'games' AND (SELECT seq FROM games_seq) > seq
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO sqlite_sequence (name, seq)
+            SELECT 'games', (SELECT seq FROM games_seq)
+             WHERE (SELECT seq FROM games_seq) IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'games')
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE games_seq")
+    }
+
+    /**
      * Ordered oldest to newest. Room composes them, so a device three versions behind
      * walks the chain rather than needing a 1-to-4 migration of its own.
      */
@@ -902,6 +1041,7 @@ object Migrations {
         MIGRATION_13_14,
         MIGRATION_14_15,
         MIGRATION_15_16,
-        MIGRATION_16_17
+        MIGRATION_16_17,
+        MIGRATION_17_18
     )
 }

@@ -112,6 +112,8 @@
     <string name="game_detail_play_history">Play history</string>
     <string name="game_detail_expansions">Expansions</string>
     <string name="game_detail_no_expansions">No expansions recorded.</string>
+    <string name="game_detail_expansion_for">Expansion for</string>
+    <string name="game_detail_no_base_games">No base game recorded.</string>
     <string name="game_detail_rating">Rating</string>
     <string name="game_detail_rate">Rate this game</string>
     <string name="game_detail_no_rating">Not rated yet.</string>
