@@ -553,6 +553,24 @@ class SessionDaoTest {
         assertEquals(1, repository.observeSessions(SessionFilter(playerId = ben)).first().size)
     }
 
+    /**
+     * A play is logged against the base game, so filtering on `game_id` alone leaves an
+     * expansion's detail screen counting plays above a list with nothing in it.
+     */
+    @Test
+    fun `the session list gives an expansion the plays it was on the table for`() = runTest {
+        val seafarers = db.gameDao().insert(DatabaseTestFixture.game("Seafarers", isExpansion = true))
+        repository.save(form(listOf(me to 10.0)).copy(expansionIds = listOf(seafarers)))
+        repository.save(form(listOf(me to 10.0)).copy(playedOn = LocalDate.parse("2026-02-06")))
+
+        val withSeafarers = repository.observeSessions(SessionFilter(gameId = seafarers)).first()
+
+        assertEquals(1, withSeafarers.size)
+        // The row still names the evening's game, which is the one that was played.
+        assertEquals("Catan", withSeafarers.single().gameTitle)
+        assertEquals(2, repository.observeSessions(SessionFilter(gameId = gameId)).first().size)
+    }
+
     @Test
     fun `the session list filters by date range`() = runTest {
         repository.save(form(listOf(me to 1.0)))

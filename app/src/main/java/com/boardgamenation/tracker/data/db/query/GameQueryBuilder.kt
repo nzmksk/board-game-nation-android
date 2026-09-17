@@ -18,6 +18,11 @@ import com.boardgamenation.tracker.domain.model.CollectionSort
  * option says what it does, and the box is a thing somebody may well want to rank by on
  * its own.
  *
+ * It divides by the plays the box was on the table for, which is why the count reads
+ * `session_games` and not `sessions`. A play is logged against the base game, so an
+ * expansion counted the other way has never been played: no play count, no last-played
+ * date, and a cost per play the list could only sort last.
+ *
  * Values are always bound as arguments, never interpolated. The only text ever
  * concatenated into the SQL comes from this file's own constants.
  */
@@ -43,8 +48,10 @@ object GameQueryBuilder {
         FROM games g
         JOIN game_costing cost ON cost.game_id = g.id
         LEFT JOIN (
-            SELECT game_id, COUNT(*) AS play_count, MAX(played_on) AS last_played
-            FROM sessions WHERE is_draft = 0 AND is_invalid = 0 GROUP BY game_id
+            SELECT sg.game_id AS game_id, COUNT(*) AS play_count, MAX(s.played_on) AS last_played
+            FROM session_games sg
+            JOIN sessions s ON s.id = sg.session_id
+            WHERE s.is_draft = 0 AND s.is_invalid = 0 GROUP BY sg.game_id
         ) pc ON pc.game_id = g.id
     """
 

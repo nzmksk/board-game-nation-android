@@ -157,6 +157,13 @@ interface GameDao {
      *
      * A play flagged as invalid is not counted at all, here or in any other statistic:
      * a game set up or played wrongly says nothing useful about anything.
+     *
+     * The plays are the ones this box was on the table for, read through `session_games`.
+     * An expansion is played by going out with the game it expands rather than by being
+     * logged against, so asking `sessions` for its game id gives every expansion in the
+     * collection the same screen: no plays, no hours, no cost per play, whatever it has
+     * actually been to. The hours and the win rate are then the evenings it was part of,
+     * which is the only sense in which an expansion has either.
      */
     @Query(
         """
@@ -181,8 +188,9 @@ interface GameDao {
                 JOIN players p ON p.id = sp.player_id
                 WHERE sp.session_id = s.id AND p.is_self = 1
             )), 0) AS self_plays
-        FROM sessions s
-        WHERE s.game_id = :gameId AND s.is_draft = 0 AND s.is_invalid = 0
+        FROM session_games sg
+        JOIN sessions s ON s.id = sg.session_id
+        WHERE sg.game_id = :gameId AND s.is_draft = 0 AND s.is_invalid = 0
         """
     )
     fun observeAggregates(gameId: Long): Flow<GameAggregates>

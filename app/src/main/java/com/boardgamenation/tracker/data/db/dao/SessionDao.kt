@@ -28,6 +28,12 @@ interface SessionDao {
      * A play flagged as invalid is not: it is out of every statistic but stays in the
      * log, because it is a record of an evening that happened and the only way back to
      * the switch that unflags it.
+     *
+     * Filtering by a game asks `session_games`, so an expansion's plays are the evenings
+     * it was on the table for. Its detail screen counts those plays, and a list that read
+     * `game_id` alone would have shown nothing underneath the count. The rows still name
+     * the game each play was logged against -- it was an evening of Wingspan, played with
+     * Oceania, and the list says Wingspan.
      */
     @Query(
         """
@@ -62,7 +68,8 @@ interface SessionDao {
         FROM sessions s
         JOIN games g ON g.id = s.game_id
         WHERE s.is_draft = 0
-          AND (:gameId IS NULL OR s.game_id = :gameId)
+          AND (:gameId IS NULL OR s.id IN (
+                SELECT sg.session_id FROM session_games sg WHERE sg.game_id = :gameId))
           AND (:playerId IS NULL OR EXISTS (
                 SELECT 1 FROM session_players sp
                 WHERE sp.session_id = s.id AND sp.player_id = :playerId))
@@ -314,7 +321,8 @@ interface SessionDao {
         FROM sessions s
         JOIN games g ON g.id = s.game_id
         WHERE s.is_draft = 1
-          AND (:gameId IS NULL OR s.game_id = :gameId)
+          AND (:gameId IS NULL OR s.id IN (
+                SELECT sg.session_id FROM session_games sg WHERE sg.game_id = :gameId))
           AND (:playerId IS NULL OR EXISTS (
                 SELECT 1 FROM session_players sp
                 WHERE sp.session_id = s.id AND sp.player_id = :playerId))
