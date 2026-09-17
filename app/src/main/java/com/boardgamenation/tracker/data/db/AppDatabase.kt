@@ -28,6 +28,7 @@ import com.boardgamenation.tracker.data.db.entity.RubricCriterionEntity
 import com.boardgamenation.tracker.data.db.entity.RubricEntity
 import com.boardgamenation.tracker.data.db.entity.SessionEntity
 import com.boardgamenation.tracker.data.db.entity.SessionExpansionEntity
+import com.boardgamenation.tracker.data.db.entity.SessionGamesView
 import com.boardgamenation.tracker.data.db.entity.SessionModeEntity
 import com.boardgamenation.tracker.data.db.entity.SessionObjectiveEntity
 import com.boardgamenation.tracker.data.db.entity.SessionPlayerEntity
@@ -68,7 +69,7 @@ import com.boardgamenation.tracker.data.db.entity.TimerStateEntity
         TimerSeatEntity::class,
         BggThingCacheEntity::class
     ],
-    views = [GameCostingView::class],
+    views = [GameCostingView::class, SessionGamesView::class],
     version = AppDatabase.VERSION,
     exportSchema = true
 )
@@ -87,7 +88,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun bggCacheDao(): BggCacheDao
 
     companion object {
-        const val VERSION = 18
+        const val VERSION = 19
         const val NAME = "board_game_nation.db"
     }
 }

@@ -1029,6 +1029,46 @@ class MigrationTest {
         assertEquals("2026-01-01", db.gameDao().getGame(2)!!.dateAdded)
     }
 
+    // --- games on the table -----------------------------------------------------------
+
+    /**
+     * The view is created by the migration rather than by Room, so this is the check that
+     * the hand-written statement produced a working view and not merely one whose text
+     * passed the schema comparison.
+     */
+    @Test
+    fun `an upgraded database knows an expansion was on the table`() = runTest {
+        seedAt(18) { db ->
+            insertGameV18(db, id = 1, title = "Wingspan")
+            insertGameV18(db, id = 2, title = "Wingspan: Oceania", isExpansion = 1)
+            insertSessionV18(db, id = 1, gameId = 1)
+            db.execSQL("INSERT INTO session_expansions (session_id, game_id) VALUES (1, 2)")
+        }
+
+        val db = openMigrated()
+
+        assertEquals(listOf(1L, 2L), gamesOnTheTable(db, sessionId = 1))
+    }
+
+    /**
+     * Purely additive, which for a view means the old answer is still in it. A collection
+     * that never recorded an expansion on a play gets one row per session -- exactly the
+     * rows its queries were already counting when they read `sessions` directly.
+     */
+    @Test
+    fun `a collection that records no expansions gets one row per play`() = runTest {
+        seedAt(18) { db ->
+            insertGameV18(db, id = 1, title = "Azul")
+            insertSessionV18(db, id = 1, gameId = 1)
+            insertSessionV18(db, id = 2, gameId = 1)
+        }
+
+        val db = openMigrated()
+
+        assertEquals(listOf(1L), gamesOnTheTable(db, sessionId = 1))
+        assertEquals(listOf(1L), gamesOnTheTable(db, sessionId = 2))
+    }
+
     // --- plumbing -------------------------------------------------------------------
 
     /** Builds a database at schema version 1 and hands it to [block] to fill. */
@@ -1163,6 +1203,30 @@ class MigrationTest {
         VALUES ($id, $gameId, '2026-01-05', 45, 2, ${mode?.let { "'$it'" } ?: "NULL"}, 0, 0)
         """.trimIndent()
     )
+
+    private fun insertGameV18(db: SupportSQLiteDatabase, id: Long, title: String, isExpansion: Int = 0) = db.execSQL(
+        """
+        INSERT INTO games (id, title, date_added, status, is_expansion, created_at, updated_at)
+        VALUES ($id, '$title', '2026-01-01', 'OWNED', $isExpansion, 0, 0)
+        """.trimIndent()
+    )
+
+    private fun insertSessionV18(db: SupportSQLiteDatabase, id: Long, gameId: Long) = db.execSQL(
+        """
+        INSERT INTO sessions (id, game_id, played_on, duration_minutes, player_count,
+                              created_at, updated_at)
+        VALUES ($id, $gameId, '2026-01-05', 45, 2, 0, 0)
+        """.trimIndent()
+    )
+
+    /** Reads the migration-created view directly; nothing else in the test needs a DAO. */
+    private fun gamesOnTheTable(db: AppDatabase, sessionId: Long): List<Long> = db.openHelper.writableDatabase
+        .query("SELECT game_id FROM session_games WHERE session_id = $sessionId ORDER BY game_id")
+        .use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(cursor.getLong(0))
+            }
+        }
 
     private fun columnsOf(db: AppDatabase, table: String): List<String> =
         db.openHelper.writableDatabase.query("PRAGMA table_info($table)").use { cursor ->
