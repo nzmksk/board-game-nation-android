@@ -1,6 +1,7 @@
 package com.boardgamenation.tracker.data.db
 
 import com.boardgamenation.tracker.data.db.entity.GameCostEntity
+import com.boardgamenation.tracker.data.db.entity.SessionExpansionEntity
 import com.boardgamenation.tracker.data.db.query.GameQueryBuilder
 import com.boardgamenation.tracker.data.repository.StatsRepository
 import com.boardgamenation.tracker.domain.model.CollectionFilter
@@ -51,6 +52,16 @@ class CostingTest {
 
     private suspend fun play(gameId: Long, count: Int) = repeat(count) {
         db.sessionDao().insertSession(DatabaseTestFixture.session(gameId, playedOn = "2026-02-01"))
+    }
+
+    private suspend fun expansion(title: String, price: Double?): Long =
+        db.gameDao().insert(DatabaseTestFixture.game(title, price = price, isExpansion = true))
+
+    /** A play of [gameId] with [expansions] out, which is how the form records one. */
+    private suspend fun playWith(gameId: Long, vararg expansions: Long, count: Int = 1) = repeat(count) {
+        val sessionId = db.sessionDao()
+            .insertSession(DatabaseTestFixture.session(gameId, playedOn = "2026-02-01"))
+        db.sessionDao().insertExpansions(expansions.map { SessionExpansionEntity(sessionId, it) })
     }
 
     @Test
@@ -186,5 +197,96 @@ class CostingTest {
             .first()
 
         assertNull(rows.single().costPerPlay)
+    }
+
+    // --- expansions -------------------------------------------------------------------
+
+    /**
+     * A play names the base game, so an expansion read off `sessions` alone has never
+     * been played and can only ever cost nothing per play. It earns its keep on the
+     * evenings it was taken out, the same as the box it sits on top of.
+     */
+    @Test
+    fun `an expansion has a cost per play from the nights it was on the table`() = runTest {
+        val wingspan = game("Wingspan", price = 200.0)
+        val oceania = expansion("Wingspan: Oceania", price = 90.0)
+        playWith(wingspan, oceania, count = 3)
+        play(wingspan, count = 1)
+
+        val rows = stats.bestValue().first().associateBy { it.title }
+
+        assertEquals(4, rows.getValue("Wingspan").playCount)
+        assertEquals(50.0, rows.getValue("Wingspan").costPerPlay, 0.001)
+        assertEquals(3, rows.getValue("Wingspan: Oceania").playCount)
+        assertEquals(30.0, rows.getValue("Wingspan: Oceania").costPerPlay, 0.001)
+    }
+
+    /** Accessories count on an expansion exactly as they do on a base game. */
+    @Test
+    fun `an expansion's cost per play divides its total rather than its price`() = runTest {
+        val gloomhaven = game("Gloomhaven", price = 450.0)
+        val forgottenCircles = expansion("Forgotten Circles", price = 100.0)
+        spend(forgottenCircles, "Sleeves" to 20.0)
+        playWith(gloomhaven, forgottenCircles, count = 4)
+
+        val row = stats.bestValue().first().single { it.title == "Forgotten Circles" }
+
+        assertEquals(120.0, row.totalCost, 0.001)
+        assertEquals(30.0, row.costPerPlay, 0.001)
+    }
+
+    @Test
+    fun `an expansion that has been played is not dead weight`() = runTest {
+        val root = game("Root", price = 220.0)
+        val riverfolk = expansion("Root: Riverfolk", price = 120.0)
+        expansion("Root: Underworld", price = 130.0)
+        playWith(root, riverfolk)
+
+        val dead = stats.deadWeight().first().map { it.label }
+
+        assertEquals(listOf("Root: Underworld"), dead)
+    }
+
+    /** The shelf of shame asks the same question, and has to give the same answer. */
+    @Test
+    fun `an expansion that has been played is off the shelf of shame`() = runTest {
+        val root = game("Root", price = 220.0)
+        val riverfolk = expansion("Root: Riverfolk", price = 120.0)
+        expansion("Root: Underworld", price = 130.0)
+        playWith(root, riverfolk)
+
+        assertEquals(
+            listOf("Root: Underworld"),
+            stats.unplayedGames().first().map { it.label }
+        )
+    }
+
+    /**
+     * Both halves of the overall figure count the same way. The expansion's price is in
+     * the total whether or not it is ever taken out, so the evening it was taken out to
+     * has to be in the play count.
+     */
+    @Test
+    fun `the overall cost per play counts the expansions it has already paid for`() = runTest {
+        val wingspan = game("Wingspan", price = 200.0)
+        val oceania = expansion("Wingspan: Oceania", price = 100.0)
+        playWith(wingspan, oceania, count = 2)
+
+        // 300 spent over four box-plays: two of Wingspan, two of Oceania.
+        assertEquals(75.0, stats.overallCostPerPlay().first()!!, 0.001)
+    }
+
+    /** An expansion of an expansion is one more game on the table, not a special case. */
+    @Test
+    fun `every expansion on the table gets the play`() = runTest {
+        val catan = game("Catan", price = 150.0)
+        val seafarers = expansion("Catan: Seafarers", price = 100.0)
+        val seaRobbers = expansion("Legends of the Sea Robbers", price = 50.0)
+        playWith(catan, seafarers, seaRobbers, count = 2)
+
+        val rows = stats.bestValue().first().associateBy { it.title }
+
+        assertEquals(setOf("Catan", "Catan: Seafarers", "Legends of the Sea Robbers"), rows.keys)
+        rows.values.forEach { assertEquals(2, it.playCount) }
     }
 }
