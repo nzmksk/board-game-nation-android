@@ -6,6 +6,7 @@ import com.boardgamenation.tracker.data.db.dao.SessionDao
 import com.boardgamenation.tracker.data.db.dao.TagDao
 import com.boardgamenation.tracker.data.db.entity.GameEntity
 import com.boardgamenation.tracker.data.db.entity.GameTagCrossRef
+import com.boardgamenation.tracker.data.db.entity.SessionExpansionEntity
 import com.boardgamenation.tracker.data.db.entity.TagEntity
 import com.boardgamenation.tracker.data.db.query.GameQueryBuilder
 import com.boardgamenation.tracker.domain.model.CollectionFilter
@@ -125,6 +126,71 @@ class GameDaoTest {
         sessionDao.insertSession(DatabaseTestFixture.session(gameId, "2026-02-02", isDraft = true))
 
         assertEquals(1, collection(CollectionFilter()).first().playCount)
+    }
+
+    /**
+     * A play is logged against the base game, with the expansions that were out beside
+     * it. Counted any other way an expansion has never been played, however many nights
+     * it has actually been to.
+     */
+    @Test
+    fun `an expansion is played on the nights it was on the table`() = runTest {
+        val wingspan = gameDao.insert(DatabaseTestFixture.game("Wingspan", price = 200.0))
+        val oceania = gameDao.insert(
+            DatabaseTestFixture.game("Wingspan: Oceania", price = 80.0, isExpansion = true)
+        )
+        val sessionId = sessionDao.insertSession(
+            DatabaseTestFixture.session(wingspan, playedOn = "2026-02-01")
+        )
+        sessionDao.insertExpansions(listOf(SessionExpansionEntity(sessionId, oceania)))
+        sessionDao.insertSession(DatabaseTestFixture.session(wingspan, playedOn = "2026-02-08"))
+
+        val rows = collection(CollectionFilter()).associateBy { it.title }
+
+        assertEquals(1, rows.getValue("Wingspan: Oceania").playCount)
+        assertEquals("2026-02-01", rows.getValue("Wingspan: Oceania").lastPlayed)
+        assertEquals(80.0, rows.getValue("Wingspan: Oceania").costPerPlay!!, 0.001)
+        assertEquals(2, rows.getValue("Wingspan").playCount)
+    }
+
+    /** And it sorts among the games on that figure, rather than below all of them. */
+    @Test
+    fun `an expansion sorts by cost per play like any other box`() = runTest {
+        val wingspan = gameDao.insert(DatabaseTestFixture.game("Wingspan", price = 200.0))
+        val oceania = gameDao.insert(
+            DatabaseTestFixture.game("Wingspan: Oceania", price = 40.0, isExpansion = true)
+        )
+        repeat(4) { index ->
+            val sessionId = sessionDao.insertSession(
+                DatabaseTestFixture.session(wingspan, playedOn = "2026-02-0${index + 1}")
+            )
+            sessionDao.insertExpansions(listOf(SessionExpansionEntity(sessionId, oceania)))
+        }
+
+        val rows = collection(CollectionFilter(sort = CollectionSort.COST_PER_PLAY))
+
+        assertEquals(listOf("Wingspan: Oceania", "Wingspan"), rows.map { it.title })
+        assertEquals(10.0, rows.first().costPerPlay!!, 0.001)
+    }
+
+    /** The detail screen asks the same question and has to get the same answer. */
+    @Test
+    fun `aggregates count the evenings an expansion was part of`() = runTest {
+        val wingspan = gameDao.insert(DatabaseTestFixture.game("Wingspan"))
+        val oceania = gameDao.insert(DatabaseTestFixture.game("Wingspan: Oceania", isExpansion = true))
+        val withOceania = sessionDao.insertSession(
+            DatabaseTestFixture.session(wingspan, playedOn = "2026-02-01", durationMinutes = 90)
+        )
+        sessionDao.insertExpansions(listOf(SessionExpansionEntity(withOceania, oceania)))
+        sessionDao.insertSession(
+            DatabaseTestFixture.session(wingspan, playedOn = "2026-02-08", durationMinutes = 60)
+        )
+
+        val aggregates = gameDao.observeAggregates(oceania).first()
+
+        assertEquals(1, aggregates.playCount)
+        assertEquals(90, aggregates.totalMinutes)
+        assertEquals("2026-02-01", aggregates.lastPlayed)
     }
 
     @Test

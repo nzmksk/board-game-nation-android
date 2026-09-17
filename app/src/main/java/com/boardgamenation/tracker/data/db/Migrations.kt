@@ -4,6 +4,8 @@ import androidx.room.migration.Migration
 import com.boardgamenation.tracker.data.db.entity.BACKFILL_SESSION_MODES_SQL
 import com.boardgamenation.tracker.data.db.entity.GAME_COSTING_SQL
 import com.boardgamenation.tracker.data.db.entity.GameCostingView
+import com.boardgamenation.tracker.data.db.entity.SESSION_GAMES_SQL
+import com.boardgamenation.tracker.data.db.entity.SessionGamesView
 
 /**
  * Every schema change ships a migration here and a test in `MigrationTest` that opens a
@@ -1022,6 +1024,26 @@ object Migrations {
     }
 
     /**
+     * Adds the view that says which games were actually on the table for a play, so that
+     * an expansion stops reading as a box nobody has ever played.
+     *
+     * Nothing is written, read back or dropped. Every row of every table is left exactly
+     * where it was: the view is a second way of asking `sessions` and `session_expansions`
+     * the question they already hold the answer to between them, and a collection that has
+     * never recorded an expansion on a play gets a view with one row per session, which is
+     * what its queries were already counting.
+     *
+     * Created here for the reason [MIGRATION_11_12] creates `game_costing` here: Room
+     * creates views on a fresh database only, an upgraded one gets whatever the migration
+     * leaves behind, and the schema check that runs straight afterwards compares the text
+     * it finds against the text it expects. Both sides read [SESSION_GAMES_SQL].
+     */
+    private val MIGRATION_18_19 = Migration(18, 19) { db ->
+        db.execSQL("DROP VIEW IF EXISTS `${SessionGamesView.NAME}`")
+        db.execSQL("CREATE VIEW `${SessionGamesView.NAME}` AS $SESSION_GAMES_SQL")
+    }
+
+    /**
      * Ordered oldest to newest. Room composes them, so a device three versions behind
      * walks the chain rather than needing a 1-to-4 migration of its own.
      */
@@ -1042,6 +1064,7 @@ object Migrations {
         MIGRATION_14_15,
         MIGRATION_15_16,
         MIGRATION_16_17,
-        MIGRATION_17_18
+        MIGRATION_17_18,
+        MIGRATION_18_19
     )
 }

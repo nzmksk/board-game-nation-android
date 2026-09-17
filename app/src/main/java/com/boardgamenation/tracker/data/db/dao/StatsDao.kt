@@ -20,6 +20,12 @@ import kotlinx.coroutines.flow.Flow
  * them. The two genuinely sequential metrics (streaks) return a compact distinct-period
  * list that the repository walks, rather than a full table scan in Kotlin.
  *
+ * Figures about one box -- what it cost per play, whether it has been played at all --
+ * read `session_games`, because a play names the base game and the expansions that went
+ * out with it are a second table. The rankings over plays, most played and the h-index
+ * among them, deliberately do not: there an evening is one play of the game it was logged
+ * against, for the reason given on that view.
+ *
  * Two flags are filtered out of every query here without exception, and they are the
  * only ones that are. `is_draft` is not a play yet; `is_invalid` is a play of a game
  * the table got wrong, which is a play of no game at all. Everything else -- abandoned,
@@ -109,13 +115,24 @@ interface StatsDao {
     )
     fun observePlayerCountCoverage(): Flow<List<LabelledValue>>
 
-    /** The shelf of shame: owned and never played. */
+    /**
+     * The shelf of shame: owned and never played.
+     *
+     * Never on the table, rather than never logged against. An expansion is played by
+     * being taken out with the game it expands, and one that has been would be sitting
+     * here beside the boxes still in shrink -- and beside its own entry in the dead
+     * weight, which asks the same question of the same row.
+     */
     @Query(
         """
         SELECT g.title AS label, julianday('now') - julianday(g.date_added) AS value
         FROM games g
         WHERE g.status IN ('OWNED', 'LENT_OUT')
-          AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0)
+          AND g.id NOT IN (
+              SELECT sg.game_id FROM session_games sg
+              JOIN sessions s ON s.id = sg.session_id
+              WHERE s.is_draft = 0 AND s.is_invalid = 0
+          )
         ORDER BY g.date_added ASC
         """
     )
@@ -310,6 +327,13 @@ interface StatsDao {
 
     // --- value --------------------------------------------------------------------
 
+    /**
+     * `session_games` rather than `sessions`, here and everywhere below that counts what
+     * one box has been played: a play is logged against the base game, so an expansion
+     * read straight off `sessions` has no plays, and a price divided by no plays is no
+     * figure at all. An expansion that goes to every game night earns its keep at the
+     * same rate the base game does, and now says so.
+     */
     @Query(
         """
         SELECT
@@ -318,7 +342,8 @@ interface StatsDao {
             c.total_cost / COUNT(s.id) AS cost_per_play
         FROM games g
         JOIN game_costing c ON c.game_id = g.id
-        JOIN sessions s ON s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0
+        JOIN session_games sg ON sg.game_id = g.id
+        JOIN sessions s ON s.id = sg.session_id AND s.is_draft = 0 AND s.is_invalid = 0
         WHERE c.total_cost IS NOT NULL AND c.total_cost > 0
           AND g.status IN ('OWNED', 'LENT_OUT')
         GROUP BY g.id
@@ -330,12 +355,21 @@ interface StatsDao {
     )
     fun observeCostPerPlay(cheapestFirst: Boolean, limit: Int): Flow<List<CostPerPlayRow>>
 
+    /**
+     * What the collection has cost, over the plays it has been to, so the two halves have
+     * to be counted the same way. Every priced box in the numerator contributes the plays
+     * it was on the table for to the denominator, expansions included -- an evening with
+     * three priced expansions out is four boxes earning their keep, and leaving three of
+     * them out of the count while their prices stay in the total would make the average
+     * worse the more of the collection actually got played.
+     */
     @Query(
         """
         SELECT
             COALESCE(SUM(c.total_cost), 0) /
-            NULLIF((SELECT COUNT(*) FROM sessions s2
-                    JOIN games g2 ON g2.id = s2.game_id
+            NULLIF((SELECT COUNT(*) FROM session_games sg2
+                    JOIN sessions s2 ON s2.id = sg2.session_id
+                    JOIN games g2 ON g2.id = sg2.game_id
                     JOIN game_costing c2 ON c2.game_id = g2.id
                     WHERE s2.is_draft = 0 AND s2.is_invalid = 0 AND c2.total_cost IS NOT NULL
                       AND g2.status IN ('OWNED', 'LENT_OUT')), 0)
@@ -372,7 +406,11 @@ interface StatsDao {
         JOIN game_costing c ON c.game_id = g.id
         WHERE c.total_cost IS NOT NULL AND c.total_cost > 0
           AND g.status IN ('OWNED', 'LENT_OUT')
-          AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0)
+          AND g.id NOT IN (
+              SELECT sg.game_id FROM session_games sg
+              JOIN sessions s ON s.id = sg.session_id
+              WHERE s.is_draft = 0 AND s.is_invalid = 0
+          )
         ORDER BY c.total_cost DESC
         LIMIT :limit
         """
