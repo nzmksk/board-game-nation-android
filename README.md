@@ -176,6 +176,11 @@ press resume.
 
 ### Statistics are SQL, not Kotlin
 
+What every figure means, and the rule that produces it, is
+[docs/statistics.md](docs/statistics.md). That document dictates: where a query disagrees
+with it, the query is the thing that gets changed. This section is only about how the
+figures are computed, not what they say.
+
 Every figure on the Stats screen is an aggregate query returning a `Flow`. Nothing loads a
 table to count it. The collection list computes play count, last played, rating and
 cost-per-play in SQL specifically because the list sorts by them — sorting in memory would
