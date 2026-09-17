@@ -3,6 +3,7 @@ package com.boardgamenation.tracker.domain.achievement
 import com.boardgamenation.tracker.data.db.AppDatabase
 import com.boardgamenation.tracker.data.db.DatabaseTestFixture
 import com.boardgamenation.tracker.data.db.entity.AchievementEntity
+import com.boardgamenation.tracker.data.db.entity.SessionExpansionEntity
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.After
@@ -227,6 +228,25 @@ class AchievementEvaluatorTest {
 
         val b = db.gameDao().getGameByTitle("Wingspan")!!.id
         logPlays(1, b, startDay = 5)
+        assertEquals(listOf("no_shelf_of_shame"), evaluator.evaluate().map { it.code })
+    }
+
+    /**
+     * An expansion is played by going out with the game it expands. Counted only by what
+     * a play was logged against, every expansion on the shelf is unplayed for good and
+     * this one stays locked however much the collection actually gets played.
+     */
+    @Test
+    fun `an expansion that has been on the table is not an unplayed game`() = runTest {
+        val catan = db.gameDao().insert(DatabaseTestFixture.game("Catan"))
+        val seafarers = db.gameDao().insert(DatabaseTestFixture.game("Seafarers", isExpansion = true))
+        define("no_shelf_of_shame", AchievementRule(RuleType.COLLECTION, scope = Scope.NO_UNPLAYED_GAMES))
+
+        val sessionId = db.sessionDao().insertSession(
+            DatabaseTestFixture.session(catan, playedOn = "2026-02-01")
+        )
+        db.sessionDao().insertExpansions(listOf(SessionExpansionEntity(sessionId, seafarers)))
+
         assertEquals(listOf("no_shelf_of_shame"), evaluator.evaluate().map { it.code })
     }
 

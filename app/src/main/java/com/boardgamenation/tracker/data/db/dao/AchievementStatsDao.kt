@@ -11,6 +11,13 @@ import kotlinx.coroutines.flow.Flow
  * loading rows to count them. The two ordered queries at the bottom are the exceptions,
  * because "consecutive" cannot be expressed without window functions, which SQLite on
  * API 26 does not have.
+ *
+ * Wherever the question is whether one box has been played, it is asked of
+ * `session_games`: an expansion is played by going out with the game it expands, and
+ * counting only what a play was logged against would leave a well-used expansion holding
+ * the shelf-clearing achievements shut for good. The counts over plays -- how many, how
+ * long, how many at once -- still read `sessions`, because those are evenings rather than
+ * boxes.
  */
 @Dao
 interface AchievementStatsDao {
@@ -46,7 +53,11 @@ interface AchievementStatsDao {
         SELECT COUNT(DISTINCT t.id) FROM tags t
         JOIN game_tags gt ON gt.tag_id = t.id
         WHERE t.kind = 'MECHANIC'
-          AND EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = gt.game_id AND s.is_draft = 0 AND s.is_invalid = 0)
+          AND gt.game_id IN (
+              SELECT sg.game_id FROM session_games sg
+              JOIN sessions s ON s.id = sg.session_id
+              WHERE s.is_draft = 0 AND s.is_invalid = 0
+          )
         """
     )
     suspend fun distinctMechanicsPlayed(): Int
@@ -123,7 +134,11 @@ interface AchievementStatsDao {
         """
         SELECT COALESCE(MAX(g.weight), 0) FROM games g
         WHERE g.weight IS NOT NULL
-          AND EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0)
+          AND g.id IN (
+              SELECT sg.game_id FROM session_games sg
+              JOIN sessions s ON s.id = sg.session_id
+              WHERE s.is_draft = 0 AND s.is_invalid = 0
+          )
         """
     )
     suspend fun maxWeightPlayed(): Double
@@ -147,7 +162,11 @@ interface AchievementStatsDao {
         """
         SELECT COUNT(*) FROM games g
         WHERE g.status IN ('OWNED', 'LENT_OUT')
-          AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0)
+          AND g.id NOT IN (
+              SELECT sg.game_id FROM session_games sg
+              JOIN sessions s ON s.id = sg.session_id
+              WHERE s.is_draft = 0 AND s.is_invalid = 0
+          )
         """
     )
     suspend fun unplayedOwnedCount(): Int
@@ -157,7 +176,8 @@ interface AchievementStatsDao {
         SELECT COALESCE(MIN(cpp), 0) FROM (
             SELECT g.price / COUNT(s.id) AS cpp
             FROM games g
-            JOIN sessions s ON s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0
+            JOIN session_games sg ON sg.game_id = g.id
+            JOIN sessions s ON s.id = sg.session_id AND s.is_draft = 0 AND s.is_invalid = 0
             WHERE g.price IS NOT NULL AND g.price > 0
             GROUP BY g.id
             HAVING COUNT(s.id) > 0
@@ -180,8 +200,10 @@ interface AchievementStatsDao {
             WHERE t.kind = 'MECHANIC'
             GROUP BY t.id
             HAVING COUNT(*) >= :minGames AND SUM(
-                CASE WHEN EXISTS (
-                    SELECT 1 FROM sessions s WHERE s.game_id = g.id AND s.is_draft = 0 AND s.is_invalid = 0
+                CASE WHEN g.id IN (
+                    SELECT sg.game_id FROM session_games sg
+                    JOIN sessions s ON s.id = sg.session_id
+                    WHERE s.is_draft = 0 AND s.is_invalid = 0
                 ) THEN 0 ELSE 1 END
             ) = 0
         )
